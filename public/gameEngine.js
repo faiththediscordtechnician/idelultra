@@ -230,7 +230,10 @@ class GameEngine {
       patient.waitTime = 0;
       patient.mood = 1.0;
       this.patientQueue.push(patient);
+      console.log('Patient added! Queue size:', this.patientQueue.length);
       this.emit('patientAdded', patient);
+    } else {
+      console.log('No patient types unlocked');
     }
   }
 
