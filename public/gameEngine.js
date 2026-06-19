@@ -126,6 +126,17 @@ class GameEngine {
       { id: 'rec-kiosk', name: 'Self-Service Kiosk', icon: '🖥️', cost: 5000, speedBonus: 0.30 },
     ];
     this.receptionUpgradesBought = [];
+
+    // Advertising system
+    this.advertisingLevel = 0;
+    this.advertisingUpgrades = [
+      { id: 'ad-basic', name: 'Local Flyers', icon: '📰', cost: 500, spawnBonus: 0.25 },
+      { id: 'ad-radio', name: 'Radio Ads', icon: '📻', cost: 2000, spawnBonus: 0.5 },
+      { id: 'ad-social', name: 'Social Media', icon: '📱', cost: 5000, spawnBonus: 0.75 },
+      { id: 'ad-billboard', name: 'Billboard Campaign', icon: '🎯', cost: 15000, spawnBonus: 1.0 },
+    ];
+    this.advertisingBought = [];
+    this.patientSpawnInterval = 2.0;
     this.missions = [
       { id: 0, name: 'First Patient', desc: 'Serve 1 patient', target: 1, current: 0, reward: 100, reputationReward: 5, completed: false },
       { id: 1, name: 'Busy Day', desc: 'Serve 10 patients', target: 10, current: 0, reward: 500, reputationReward: 20, completed: false },
@@ -290,6 +301,32 @@ class GameEngine {
     this.receptionUpgradesBought.push(upgradeId);
     this.saveGame();
     this.emit('receptionUpgradeBought', { upgrade: upg });
+    return true;
+  }
+
+  getPatientSpawnRate() {
+    const baseRate = 1.0;
+    const adBonus = this.advertisingBought.reduce((sum, adId) => {
+      const ad = this.advertisingUpgrades.find((a) => a.id === adId);
+      return sum + (ad ? ad.spawnBonus : 0);
+    }, 0);
+    return 1 + adBonus;
+  }
+
+  canBuyAdvertising(adId) {
+    if (this.advertisingBought.includes(adId)) return false;
+    const ad = this.advertisingUpgrades.find((a) => a.id === adId);
+    return !!ad && this.money >= ad.cost;
+  }
+
+  buyAdvertising(adId) {
+    if (!this.canBuyAdvertising(adId)) return false;
+    const ad = this.advertisingUpgrades.find((a) => a.id === adId);
+    this.money -= ad.cost;
+    this.advertisingBought.push(adId);
+    this.patientSpawnInterval = 2.0 / this.getPatientSpawnRate();
+    this.saveGame();
+    this.emit('advertisingBought', { ad });
     return true;
   }
 
@@ -701,7 +738,8 @@ class GameEngine {
     const saveData = localStorage.getItem('hospitalGameSave');
     if (saveData) {
       const data = JSON.parse(saveData);
-      this.money = data.money || 0;
+      // Reset corrupted old saves where money is unreasonably high
+      this.money = (data.money || 0) > 50000 ? 5000 : (data.money || 0);
       this.reputation = data.reputation || 0;
       this.currentHospital = data.currentHospital || 0;
       this.totalPrestige = data.totalPrestige || 0;

@@ -293,14 +293,12 @@ export class HospitalRenderer {
       let clickedRoomIdx = null;
       for (const intersection of intersects) {
         let obj = intersection.object;
-        while (obj && !clickedRoomIdx) {
-          const ref = this.roomMeshes.get(Array.from(this.roomMeshes.values()).findIndex((r) => r.group === obj));
-          if (ref && ref.group === obj) {
-            clickedRoomIdx = Array.from(this.roomMeshes.entries()).find(([, r]) => r === ref)?.[0];
+        while (obj && obj !== this.scene) {
+          if (obj.userData.roomIdx !== undefined) {
+            clickedRoomIdx = obj.userData.roomIdx;
             break;
           }
           obj = obj.parent;
-          if (obj === this.scene) break;
         }
         if (clickedRoomIdx !== null) break;
       }
@@ -466,6 +464,7 @@ export class HospitalRenderer {
       group.add(equipmentGroup);
 
       this.scene.add(group);
+      group.userData.roomIdx = idx;
       this.roomMeshes.set(idx, { group, backWall, badge, furnitureGroup, equipmentGroup, color, type });
       this.applyRoomLevel(idx, room.level || 1);
       this.syncRoomEquipment(idx, room, false);

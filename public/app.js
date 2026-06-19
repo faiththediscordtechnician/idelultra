@@ -289,11 +289,7 @@ class GameUI {
 
       /* Left Panel: Rooms */
       .left-panel {
-        left: 16px;
-        top: 150px;
-        width: 350px;
-        max-height: 500px;
-        overflow-y: auto;
+        display: none;
       }
 
       .rooms-grid {
@@ -403,18 +399,21 @@ class GameUI {
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        width: 420px;
-        max-height: 600px;
+        width: 500px;
+        max-height: 700px;
         overflow-y: auto;
         z-index: 100;
       }
 
       /* Reception Panel */
       .reception-panel {
-        bottom: 16px;
-        right: 16px;
-        width: 300px;
-        z-index: 90;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 500px;
+        max-height: 700px;
+        overflow-y: auto;
+        z-index: 100;
       }
 
       .room-detail-section {
@@ -460,11 +459,7 @@ class GameUI {
 
       /* Right Panel: Staff */
       .right-panel {
-        right: 16px;
-        top: 150px;
-        width: 350px;
-        max-height: 500px;
-        overflow-y: auto;
+        display: none;
       }
 
       .staff-grid {
@@ -507,10 +502,7 @@ class GameUI {
 
       /* Patient Panel */
       .patient-panel {
-        left: 16px;
-        bottom: 16px;
-        width: 350px;
-        max-height: 300px;
+        display: none;
       }
 
       .patient-list {
@@ -541,9 +533,7 @@ class GameUI {
 
       /* Prestige Panel */
       .prestige-panel {
-        right: 16px;
-        bottom: 16px;
-        width: 250px;
+        display: none;
       }
 
       .prestige-info {
