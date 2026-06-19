@@ -73,7 +73,9 @@ export class HospitalRenderer {
 
     const theme = themeColors[this.game.currentHospital] || themeColors[0];
     this.scene.background = new THREE.Color(theme.bg);
-    this.scene.fog.color.setHex(theme.fog);
+    if (this.scene.fog) {
+      this.scene.fog.color = new THREE.Color(theme.fog);
+    }
   }
 
   setupLighting() {
