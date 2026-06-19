@@ -248,7 +248,7 @@ class GameEngine {
 
   upgradeHospital(hospitalId) {
     const hospital = this.hospitals[hospitalId];
-    if (!hospital || hospital.unlocked || this.money < hospital.cost) {
+    if (!hospital || hospital.unlocked || this.money < hospital.cost || this.totalPrestige < hospital.prestige) {
       return false;
     }
 
@@ -329,6 +329,12 @@ class GameEngine {
   // ========== GAME LOOP ==========
 
   startGameLoop() {
+    this.patientSpawnTimer = 0;
+    this.patientSpawnInterval = 2.5; // seconds between spawn attempts
+    this.maxQueueSize = 12;
+    this.saveTimer = 0;
+    this.saveInterval = 1; // seconds between autosaves
+
     setInterval(() => {
       const now = Date.now();
       this.deltaTime = (now - this.lastFrameTime) / 1000;
@@ -338,11 +344,19 @@ class GameEngine {
       this.money += this.moneyPerSecond * this.deltaTime;
       this.checkUnlocks();
 
-      if (Math.random() < 0.3) {
-        this.addPatientToQueue();
+      this.patientSpawnTimer += this.deltaTime;
+      if (this.patientSpawnTimer >= this.patientSpawnInterval) {
+        this.patientSpawnTimer = 0;
+        if (this.patientQueue.length < this.maxQueueSize) {
+          this.addPatientToQueue();
+        }
       }
 
-      this.saveGame();
+      this.saveTimer += this.deltaTime;
+      if (this.saveTimer >= this.saveInterval) {
+        this.saveTimer = 0;
+        this.saveGame();
+      }
     }, 16);
   }
 
