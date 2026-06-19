@@ -21,10 +21,10 @@ class GameEngine {
     };
 
     this.staffTiers = {
-      intern: { name: 'Intern', salary: 50, efficiency: 1, costMultiplier: 1.1, reputationCost: 0, color: 0x90caf9 },
-      resident: { name: 'Resident', salary: 150, efficiency: 2.5, costMultiplier: 1.15, reputationCost: 10, color: 0x81c784 },
-      attending: { name: 'Attending', salary: 400, efficiency: 6, costMultiplier: 1.2, reputationCost: 50, color: 0xffb74d },
-      specialist: { name: 'Specialist', salary: 1000, efficiency: 15, costMultiplier: 1.25, reputationCost: 200, color: 0xf06292 },
+      intern: { name: 'Intern', salary: 50, efficiency: 1, costMultiplier: 1.1, reputationCost: 0, baseHireCost: 1000, color: 0x90caf9 },
+      resident: { name: 'Resident', salary: 150, efficiency: 2.5, costMultiplier: 1.15, reputationCost: 10, baseHireCost: 3500, color: 0x81c784 },
+      attending: { name: 'Attending', salary: 400, efficiency: 6, costMultiplier: 1.2, reputationCost: 50, baseHireCost: 12000, color: 0xffb74d },
+      specialist: { name: 'Specialist', salary: 1000, efficiency: 15, costMultiplier: 1.25, reputationCost: 200, baseHireCost: 40000, color: 0xf06292 },
     };
 
     // Rooms
@@ -60,6 +60,7 @@ class GameEngine {
 
     // Game content
     this.patientQueue = [];
+    this.activeTreatments = [];
     this.missions = [
       { id: 0, name: 'First Patient', desc: 'Serve 1 patient', target: 1, current: 0, reward: 100, reputationReward: 5, completed: false },
       { id: 1, name: 'Busy Day', desc: 'Serve 10 patients', target: 10, current: 0, reward: 500, reputationReward: 20, completed: false },
@@ -93,7 +94,7 @@ class GameEngine {
   getStaffCost(tier) {
     const tierData = this.staffTiers[tier];
     const count = this.staffByTier[tier].length;
-    return Math.floor(1000 * Math.pow(tierData.costMultiplier, count));
+    return Math.floor(tierData.baseHireCost * Math.pow(tierData.costMultiplier, count));
   }
 
   canHireStaff(tier) {
@@ -114,6 +115,7 @@ class GameEngine {
       id: Math.random(),
       tier,
       efficiency: tierData.efficiency,
+      busy: false,
     });
 
     this.updateMission('Team Leader');
@@ -152,18 +154,57 @@ class GameEngine {
     }
   }
 
-  servePatient() {
-    if (this.patientQueue.length === 0) return null;
+  getIdleStaff() {
+    const idle = [];
+    Object.values(this.staffByTier).forEach((list) => {
+      list.forEach((s) => { if (!s.busy) idle.push(s); });
+    });
+    return idle;
+  }
 
+  getTreatmentDuration(staff) {
+    return Math.max(0.6, 5 / staff.efficiency);
+  }
+
+  canTreatPatient() {
+    return this.patientQueue.length > 0 && this.getIdleStaff().length > 0;
+  }
+
+  assignNextPatient() {
+    if (this.patientQueue.length === 0) return false;
+    const idle = this.getIdleStaff();
+    if (idle.length === 0) return false;
+
+    const staff = idle[0];
     const patient = this.patientQueue.shift();
-    this.money += patient.revenuePerPatient;
-    this.reputation += patient.reputationReward;
+    staff.busy = true;
 
-    this.updateMission('First Patient');
-    this.updateMission('Busy Day');
-    this.saveGame();
-    this.emit('patientServed', patient);
-    return patient;
+    const duration = this.getTreatmentDuration(staff);
+    this.activeTreatments.push({ id: Math.random(), patient, staff, remaining: duration, duration });
+    this.emit('treatmentStarted', { patient, staff, duration });
+    return true;
+  }
+
+  treatPatient() {
+    return this.assignNextPatient();
+  }
+
+  updateTreatments(deltaTime) {
+    for (let i = this.activeTreatments.length - 1; i >= 0; i--) {
+      const treatment = this.activeTreatments[i];
+      treatment.remaining -= deltaTime;
+      if (treatment.remaining <= 0) {
+        const { patient, staff } = treatment;
+        this.money += patient.revenuePerPatient;
+        this.reputation += patient.reputationReward;
+        staff.busy = false;
+
+        this.updateMission('First Patient');
+        this.updateMission('Busy Day');
+        this.emit('treatmentCompleted', { patient, staff });
+        this.activeTreatments.splice(i, 1);
+      }
+    }
   }
 
   // ========== ROOM SYSTEM ==========
@@ -303,6 +344,7 @@ class GameEngine {
       }
     });
     this.patientQueue = [];
+    this.activeTreatments = [];
 
     this.updateMoneyPerSecond();
     this.checkUnlocks();
@@ -344,6 +386,11 @@ class GameEngine {
 
       this.money += this.moneyPerSecond * this.deltaTime;
       this.checkUnlocks();
+
+      this.updateTreatments(this.deltaTime);
+      while (this.assignNextPatient()) {
+        // keep assigning idle staff to waiting patients until none are left
+      }
 
       this.patientSpawnTimer += this.deltaTime;
       if (this.patientSpawnTimer >= this.patientSpawnInterval) {
@@ -388,6 +435,12 @@ class GameEngine {
       this.currentHospital = data.currentHospital || 0;
       this.totalPrestige = data.totalPrestige || 0;
       this.staffByTier = data.staffByTier || this.staffByTier;
+      // Treatment progress can't be meaningfully restored, so clear it and
+      // make sure no staff stay permanently locked as "busy" from a stale save.
+      Object.values(this.staffByTier).forEach((list) => {
+        list.forEach((s) => { s.busy = false; });
+      });
+      this.activeTreatments = [];
 
       // Merge loaded rooms with roomTypes to restore color properties
       if (data.rooms) {

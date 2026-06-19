@@ -21,7 +21,9 @@ class GameUI {
       <div class="game-container">
         <div id="hospital-canvas" class="viewport"></div>
 
-        <div class="hud">
+        <button id="statsToggleBtn" class="stats-toggle-btn" title="Toggle stats panels">📊</button>
+
+        <div class="hud" id="hud">
           <!-- Top Stats Panel -->
           <div class="panel stats-panel">
             <div class="stat-item">
@@ -59,7 +61,7 @@ class GameUI {
 
           <!-- Bottom Panel: Patient Queue -->
           <div class="panel patient-panel">
-            <div class="panel-title">Queue <span id="queueCount">(0)</span></div>
+            <div class="panel-title">Queue <span id="queueCount">(0)</span> &nbsp; <span id="treatingCount" class="treating-count">Treating: 0</span></div>
             <div id="patientQueue" class="patient-list"></div>
             <button id="serveBtn" class="btn btn-primary">
               <span class="btn-text">Serve Patient</span>
@@ -139,7 +141,44 @@ class GameUI {
         backdrop-filter: blur(10px);
         pointer-events: auto;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        animation: slideIn 0.4s ease-out;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+      }
+
+      .hud.hud-collapsed .panel {
+        opacity: 0;
+        transform: translateY(12px);
+        pointer-events: none;
+        visibility: hidden;
+      }
+
+      .stats-toggle-btn {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        z-index: 50;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        border: 2px solid rgba(100, 150, 255, 0.5);
+        background: rgba(15, 20, 35, 0.85);
+        color: #64d9ff;
+        font-size: 22px;
+        cursor: pointer;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        pointer-events: auto;
+        transition: transform 0.15s ease, background 0.15s ease;
+      }
+
+      .stats-toggle-btn:hover {
+        transform: scale(1.08);
+        background: rgba(100, 150, 255, 0.25);
+      }
+
+      .treating-count {
+        color: #ffb74d;
+        font-size: 13px;
+        font-weight: normal;
       }
 
       @keyframes slideIn {
@@ -543,12 +582,21 @@ class GameUI {
     // Prestige button
     document.getElementById('prestigeBtn').addEventListener('click', () => this.prestige());
 
+    // Stats panel toggle
+    document.getElementById('statsToggleBtn').addEventListener('click', () => this.toggleHud());
+    document.getElementById('hud').classList.add('hud-collapsed');
+
     // Connect game events
     this.game.on('staffHired', () => this.showNotification('Staff hired! 👥', 'success'));
     this.game.on('roomBought', () => this.showNotification('Room purchased! 🏗️', 'success'));
     this.game.on('roomUpgraded', () => this.showNotification('Room upgraded! ⚡', 'success'));
     this.game.on('missionCompleted', (mission) => this.showNotification(`Achievement: ${mission.name}! 🏆`, 'achievement'));
     this.game.on('patientTypeUnlocked', (pt) => this.showNotification(`Unlocked: ${pt.icon} ${pt.name}`, 'success'));
+    this.game.on('treatmentCompleted', ({ patient }) => this.showNotification(`Treated ${patient.icon} ${patient.name} +$${patient.revenuePerPatient}`, 'success'));
+  }
+
+  toggleHud() {
+    document.getElementById('hud').classList.toggle('hud-collapsed');
   }
 
   attachEventListeners() {
@@ -574,8 +622,7 @@ class GameUI {
   }
 
   servePatient() {
-    const patient = this.game.servePatient();
-    if (patient) {
+    if (this.game.treatPatient()) {
       this.updateUI();
     }
   }
@@ -617,19 +664,29 @@ class GameUI {
       document.getElementById(`staff-cost-${tier}`).textContent = this.game.getStaffCost(tier);
     });
 
-    // Patient Queue
-    const queueContainer = document.getElementById('patientQueue');
-    queueContainer.innerHTML = '';
-    this.game.patientQueue.slice(0, 6).forEach((patient) => {
-      const item = document.createElement('div');
-      item.className = 'patient-item';
-      item.innerHTML = `
-        <span class="patient-name">${patient.icon} ${patient.name}</span>
-        <span class="patient-reward">+$${patient.revenuePerPatient}</span>
-      `;
-      queueContainer.appendChild(item);
-    });
+    // Patient Queue (only rebuild the DOM when the visible set of patients actually changes,
+    // otherwise the slideIn animation replays every tick and looks like nonstop motion)
+    const visibleQueue = this.game.patientQueue.slice(0, 6);
+    const queueKey = visibleQueue.map((p) => p.id).join(',');
+    if (queueKey !== this.lastQueueKey) {
+      this.lastQueueKey = queueKey;
+      const queueContainer = document.getElementById('patientQueue');
+      queueContainer.innerHTML = '';
+      visibleQueue.forEach((patient) => {
+        const item = document.createElement('div');
+        item.className = 'patient-item';
+        item.innerHTML = `
+          <span class="patient-name">${patient.icon} ${patient.name}</span>
+          <span class="patient-reward">+$${patient.revenuePerPatient}</span>
+        `;
+        queueContainer.appendChild(item);
+      });
+    }
     document.getElementById('queueCount').textContent = `(${this.game.patientQueue.length})`;
+    document.getElementById('treatingCount').textContent = `Treating: ${this.game.activeTreatments.length}`;
+
+    // Serve button is only enabled when there's a waiting patient AND an idle staff member
+    document.getElementById('serveBtn').disabled = !this.game.canTreatPatient();
 
     // Prestige
     const prestigeGain = this.game.getPrestigeGain();

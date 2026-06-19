@@ -22,6 +22,9 @@ const ROOM_DEFS = [
 const NEUTRAL_WALL = 0xfdfaf3;
 const SKIN_TONES = [0xffd9b3, 0xe8b894, 0xc88a5c, 0xf5c9a0];
 const STAFF_HAIR = 0x3e2723;
+// Neutral gown so patients never blend into a room's accent wall color —
+// their patient-type color is shown as a small chest badge instead.
+const PATIENT_GOWN = 0xe3f2fd;
 
 function makeTileTexture() {
   const canvas = document.createElement('canvas');
@@ -75,6 +78,33 @@ function makePictureTexture(color) {
   return new THREE.CanvasTexture(canvas);
 }
 
+function makeHeartTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.font = '46px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('❤️', 32, 34);
+  return new THREE.CanvasTexture(canvas);
+}
+
+function makeTextTexture(text, color = '#ffd700') {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.font = 'bold 40px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(0,0,0,0.55)';
+  ctx.fillText(text, 130, 34);
+  ctx.fillStyle = color;
+  ctx.fillText(text, 128, 32);
+  return new THREE.CanvasTexture(canvas);
+}
+
 export class HospitalRenderer {
   constructor(container, game) {
     this.game = game;
@@ -120,6 +150,8 @@ export class HospitalRenderer {
     this.roomMeshes = new Map();
     this.staffMeshes = new Map();
     this.patientMeshes = new Map();
+    this.heartSprites = new Map();
+    this.floatingTexts = [];
     this.particleSystem = new ParticleSystem(this.scene);
 
     this.shakeTime = 0;
@@ -442,9 +474,12 @@ export class HospitalRenderer {
   }
 
   setupGameEvents() {
-    this.game.on('patientServed', (patient) => {
-      const recDef = ROOM_DEFS[0];
-      this.particleSystem.burst(patient.color || 0x4CAF50, 10, new THREE.Vector3(recDef.x, 8, recDef.z));
+    this.game.on('treatmentStarted', ({ patient, staff }) => {
+      this.startTreatmentFx(patient, staff);
+    });
+
+    this.game.on('treatmentCompleted', ({ patient, staff }) => {
+      this.completeTreatmentFx(patient, staff);
     });
 
     this.game.on('staffHired', ({ tier }) => {
@@ -478,7 +513,57 @@ export class HospitalRenderer {
     this.shakeStrength = strength;
   }
 
-  createCharacter(color, scale = 1) {
+  startTreatmentFx(patient, staff) {
+    if (!this.heartMaterial) {
+      this.heartMaterial = new THREE.SpriteMaterial({ map: makeHeartTexture(), transparent: true, depthTest: false });
+    }
+    const staffMesh = this.staffMeshes.get(staff.id);
+    const basePos = staffMesh ? staffMesh.position : new THREE.Vector3(ROOM_DEFS[0].x, 0, ROOM_DEFS[0].z);
+
+    const sprite = new THREE.Sprite(this.heartMaterial.clone());
+    sprite.scale.set(1.2, 1.2, 1.2);
+    sprite.position.set(basePos.x, 2.6, basePos.z);
+    sprite.userData.phase = Math.random() * Math.PI * 2;
+    this.scene.add(sprite);
+    this.heartSprites.set(patient.id, sprite);
+  }
+
+  completeTreatmentFx(patient, staff) {
+    const sprite = this.heartSprites.get(patient.id);
+    const pos = sprite ? sprite.position.clone() : new THREE.Vector3(ROOM_DEFS[0].x, 2.6, ROOM_DEFS[0].z);
+    if (sprite) {
+      this.scene.remove(sprite);
+      sprite.material.dispose();
+      this.heartSprites.delete(patient.id);
+    }
+    this.particleSystem.burst(0xffd700, 14, pos.clone());
+    this.spawnFloatingText(`+$${patient.revenuePerPatient}`, pos.clone().add(new THREE.Vector3(0, 0.9, 0)));
+  }
+
+  spawnFloatingText(text, position, color = '#ffd700') {
+    const material = new THREE.SpriteMaterial({ map: makeTextTexture(text, color), transparent: true, depthTest: false });
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(4.5, 1.1, 1);
+    sprite.position.copy(position);
+    this.scene.add(sprite);
+    this.floatingTexts.push({ sprite, life: 1.3, maxLife: 1.3 });
+  }
+
+  updateFloatingTexts(deltaTime) {
+    for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+      const ft = this.floatingTexts[i];
+      ft.life -= deltaTime;
+      ft.sprite.position.y += deltaTime * 1.4;
+      ft.sprite.material.opacity = Math.max(0, ft.life / ft.maxLife);
+      if (ft.life <= 0) {
+        this.scene.remove(ft.sprite);
+        ft.sprite.material.dispose();
+        this.floatingTexts.splice(i, 1);
+      }
+    }
+  }
+
+  createCharacter(color, scale = 1, badgeColor = null) {
     const group = new THREE.Group();
     const skin = SKIN_TONES[Math.floor(Math.random() * SKIN_TONES.length)];
 
@@ -521,6 +606,15 @@ export class HospitalRenderer {
       leg.castShadow = true;
       group.add(leg);
     });
+
+    if (badgeColor !== null && badgeColor !== undefined) {
+      const badge = new THREE.Mesh(
+        new THREE.SphereGeometry(0.18 * scale, 10, 10),
+        new THREE.MeshStandardMaterial({ color: badgeColor, emissive: badgeColor, emissiveIntensity: 0.35 })
+      );
+      badge.position.set(0, 1.05 * scale, 0.46 * scale);
+      group.add(badge);
+    }
 
     group.userData.phase = Math.random() * Math.PI * 2;
     return group;
@@ -565,11 +659,19 @@ export class HospitalRenderer {
   }
 
   syncPatients() {
-    const currentIds = new Set(this.game.patientQueue.map((p) => p.id));
+    const queueIds = new Set(this.game.patientQueue.map((p) => p.id));
+    const treatingIds = new Set(this.game.activeTreatments.map((t) => t.patient.id));
+
     for (const [id, mesh] of this.patientMeshes) {
-      if (!currentIds.has(id)) {
+      if (!queueIds.has(id) && !treatingIds.has(id)) {
         this.scene.remove(mesh);
         this.patientMeshes.delete(id);
+        const heart = this.heartSprites.get(id);
+        if (heart) {
+          this.scene.remove(heart);
+          heart.material.dispose();
+          this.heartSprites.delete(id);
+        }
       }
     }
 
@@ -577,13 +679,26 @@ export class HospitalRenderer {
     this.game.patientQueue.slice(0, 12).forEach((patient, idx) => {
       let mesh = this.patientMeshes.get(patient.id);
       if (!mesh) {
-        mesh = this.createCharacter(patient.color || 0x4CAF50, 0.85);
+        mesh = this.createCharacter(PATIENT_GOWN, 0.85, patient.color);
         this.scene.add(mesh);
         this.patientMeshes.set(patient.id, mesh);
       }
       const row = Math.floor(idx / 4);
       const col = idx % 4;
       mesh.position.set(recDef.x - 6 + col * 4, 0, recDef.z + HALF + 6 + row * 4);
+    });
+
+    this.game.activeTreatments.forEach(({ patient, staff }) => {
+      let mesh = this.patientMeshes.get(patient.id);
+      if (!mesh) {
+        mesh = this.createCharacter(PATIENT_GOWN, 0.85, patient.color);
+        this.scene.add(mesh);
+        this.patientMeshes.set(patient.id, mesh);
+      }
+      const staffMesh = this.staffMeshes.get(staff.id);
+      if (staffMesh) {
+        mesh.position.set(staffMesh.position.x + 1.4, 0, staffMesh.position.z);
+      }
     });
   }
 
@@ -602,6 +717,17 @@ export class HospitalRenderer {
     };
     this.staffMeshes.forEach(bob);
     this.patientMeshes.forEach(bob);
+
+    this.heartSprites.forEach((sprite, patientId) => {
+      const pMesh = this.patientMeshes.get(patientId);
+      const baseX = pMesh ? pMesh.position.x : sprite.position.x;
+      const baseZ = pMesh ? pMesh.position.z : sprite.position.z;
+      const phase = sprite.userData.phase || 0;
+      sprite.position.set(baseX, 2.6 + Math.sin(t * 3 + phase) * 0.15, baseZ);
+      const pulse = 1.1 + Math.sin(t * 5 + phase) * 0.15;
+      sprite.scale.set(1.2 * pulse, 1.2 * pulse, 1.2 * pulse);
+    });
+    this.updateFloatingTexts(deltaTime);
 
     this.currentTarget.lerp(this.cameraTarget, 0.12);
     this.updateCameraPosition();
