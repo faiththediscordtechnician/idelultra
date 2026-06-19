@@ -774,12 +774,42 @@ class GameUI {
 
     title.textContent = `${room.icon} ${room.name}`;
 
-    let html = `
-      <div class="room-detail-section">
-        <div class="detail-stat">
-          <span class="detail-label">Level</span>
-          <span class="detail-value">${room.level}</span>
-        </div>
+    let html = '';
+
+    if (!room.unlocked) {
+      const progress = this.game.getRoomUnlockProgress(room.type);
+      if (progress) {
+        html += `
+          <div class="room-detail-section" style="background: rgba(244, 67, 54, 0.1); border-color: rgba(244, 67, 54, 0.3);">
+            <div class="panel-title" style="color: #f44336; margin-bottom: 8px; font-size: 13px;">🔒 Locked</div>
+            <div style="font-size: 11px; color: #b0c4de; line-height: 1.6;">
+              <div class="detail-stat">
+                <span class="detail-label">Prestige</span>
+                <span class="detail-value">${progress.prestige.current}/${progress.prestige.required}</span>
+              </div>
+              <div class="detail-stat">
+                <span class="detail-label">Money</span>
+                <span class="detail-value">$${this.formatMoney(progress.money.current)}/$${this.formatMoney(progress.money.required)}</span>
+              </div>
+              <div class="detail-stat">
+                <span class="detail-label">Reputation</span>
+                <span class="detail-value">${Math.floor(progress.reputation.current)}/${progress.reputation.required}</span>
+              </div>
+              <div class="detail-stat">
+                <span class="detail-label">Patients Treated</span>
+                <span class="detail-value">${progress.patients.current}/${progress.patients.required}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+    } else {
+      html += `
+        <div class="room-detail-section">
+          <div class="detail-stat">
+            <span class="detail-label">Level</span>
+            <span class="detail-value">${room.level}</span>
+          </div>
         <div class="detail-stat">
           <span class="detail-label">Owned</span>
           <span class="detail-value">${room.owned}</span>
@@ -788,51 +818,60 @@ class GameUI {
           <span class="detail-label">Production</span>
           <span class="detail-value">${Math.floor(this.game.getRoomProduction(room))}/s</span>
         </div>
-        <div class="detail-stat">
-          <span class="detail-label">Furniture Bonus</span>
-          <span class="detail-value">×${(this.game.getFurnitureBonus(room)).toFixed(2)}</span>
+          <div class="detail-stat">
+            <span class="detail-label">Owned</span>
+            <span class="detail-value">${room.owned}</span>
+          </div>
+          <div class="detail-stat">
+            <span class="detail-label">Production</span>
+            <span class="detail-value">${Math.floor(this.game.getRoomProduction(room))}/s</span>
+          </div>
+          <div class="detail-stat">
+            <span class="detail-label">Furniture Bonus</span>
+            <span class="detail-value">×${(this.game.getFurnitureBonus(room)).toFixed(2)}</span>
+          </div>
         </div>
-      </div>
 
-      <div class="room-detail-section">
-        <div class="panel-title" style="margin-bottom: 8px; font-size: 13px;">⬆️ Upgrades</div>
-        <button class="btn btn-primary" style="padding: 8px; margin-bottom: 6px; width: 100%;" onclick="gameUI.upgradeRoom(${idx})">Upgrade Level ($${Math.floor(this.game.getRoomCost(room) * 0.5)})</button>
-        <button class="btn btn-primary" style="padding: 8px; width: 100%;" onclick="gameUI.buyRoom(${idx})">Buy Another Room ($${Math.floor(this.game.getRoomCost(room))})</button>
-      </div>
+          <div class="room-detail-section">
+            <div class="panel-title" style="margin-bottom: 8px; font-size: 13px;">⬆️ Upgrades</div>
+            <button class="btn btn-primary" style="padding: 8px; margin-bottom: 6px; width: 100%;" onclick="gameUI.upgradeRoom(${idx})">Upgrade Level ($${Math.floor(this.game.getRoomCost(room) * 0.5)})</button>
+            <button class="btn btn-primary" style="padding: 8px; width: 100%;" onclick="gameUI.buyRoom(${idx})">Buy Another Room ($${Math.floor(this.game.getRoomCost(room))})</button>
+          </div>
 
-      <div class="room-detail-section">
-        <div class="panel-title" style="margin-bottom: 8px; font-size: 13px;">🛠️ Equipment</div>
-        ${this.game.getFurnitureCatalog(idx).map((item) => {
-          const owned = this.game.ownsFurniture(idx, item.id);
-          return `
-            <div style="margin-bottom: 6px;">
-              <div style="font-size: 12px; color: #b0c4de; margin-bottom: 2px;">${item.icon} ${item.name} (+${Math.round(item.bonus * 100)}%)</div>
-              <button class="btn-equip ${owned ? 'owned' : ''}" onclick="gameUI.buyFurniture(${idx}, '${item.id}')" ${owned ? 'disabled' : ''}>
-                ${owned ? 'Owned ✓' : `Buy ($${item.cost})`}
-              </button>
+          <div class="room-detail-section">
+            <div class="panel-title" style="margin-bottom: 8px; font-size: 13px;">🛠️ Equipment</div>
+            ${this.game.getFurnitureCatalog(idx).map((item) => {
+              const owned = this.game.ownsFurniture(idx, item.id);
+              return `
+                <div style="margin-bottom: 6px;">
+                  <div style="font-size: 12px; color: #b0c4de; margin-bottom: 2px;">${item.icon} ${item.name} (+${Math.round(item.bonus * 100)}%)</div>
+                  <button class="btn-equip ${owned ? 'owned' : ''}" onclick="gameUI.buyFurniture(${idx}, '${item.id}')" ${owned ? 'disabled' : ''}>
+                    ${owned ? 'Owned ✓' : `Buy ($${item.cost})`}
+                  </button>
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <div class="room-detail-section">
+            <div class="panel-title" style="margin-bottom: 8px; font-size: 13px;">👥 Staff (${staffInRoom.length})</div>
+            <div class="staff-list">
+              ${staffInRoom.length > 0
+                ? staffInRoom.map((s) => `<div class="staff-item">${this.game.staffTiers[s.tier].name} (Efficiency: ${s.efficiency})</div>`).join('')
+                : '<div style="color: #666; font-size: 12px;">No staff assigned</div>'}
             </div>
-          `;
-        }).join('')}
-      </div>
+          </div>
 
-      <div class="room-detail-section">
-        <div class="panel-title" style="margin-bottom: 8px; font-size: 13px;">👥 Staff (${staffInRoom.length})</div>
-        <div class="staff-list">
-          ${staffInRoom.length > 0
-            ? staffInRoom.map((s) => `<div class="staff-item">${this.game.staffTiers[s.tier].name} (Efficiency: ${s.efficiency})</div>`).join('')
-            : '<div style="color: #666; font-size: 12px;">No staff assigned</div>'}
-        </div>
-      </div>
-
-      <div class="room-detail-section">
-        <div class="panel-title" style="margin-bottom: 8px; font-size: 13px;">🏥 Patients Waiting</div>
-        <div class="patient-list">
-          ${patientsInRoom.length > 0
-            ? patientsInRoom.map((p) => `<div class="patient-item-detail">${p.name} → +$${p.revenuePerPatient}</div>`).join('')
-            : '<div style="color: #666; font-size: 12px;">No patients in queue</div>'}
-        </div>
-      </div>
-    `;
+          <div class="room-detail-section">
+            <div class="panel-title" style="margin-bottom: 8px; font-size: 13px;">🏥 Patients Waiting</div>
+            <div class="patient-list">
+              ${patientsInRoom.length > 0
+                ? patientsInRoom.map((p) => `<div class="patient-item-detail">${p.name} → +$${p.revenuePerPatient}</div>`).join('')
+                : '<div style="color: #666; font-size: 12px;">No patients in queue</div>'}
+            </div>
+          </div>
+        `;
+    }
 
     content.innerHTML = html;
     detail.style.display = 'block';
