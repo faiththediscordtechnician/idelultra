@@ -282,11 +282,7 @@ export class HospitalRenderer {
     this.selectedRoomIdx = null;
 
     this.renderer.domElement.addEventListener('click', (e) => {
-      if (this.dragDistance > 10) {
-        console.log('Click blocked: dragDistance =', this.dragDistance);
-        return;
-      }
-
+      // For now, don't block clicks based on dragDistance - debug mode
       const rect = this.renderer.domElement.getBoundingClientRect();
       this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
