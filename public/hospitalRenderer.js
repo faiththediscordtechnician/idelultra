@@ -915,10 +915,11 @@ export class HospitalRenderer {
 
   syncPatients() {
     const queueIds = new Set(this.game.patientQueue.map((p) => p.id));
+    const checkinIds = new Set(this.game.checkingInPatients.map((p) => p.id));
     const treatingIds = new Set(this.game.activeTreatments.map((t) => t.patient.id));
 
     for (const [id, mesh] of this.patientMeshes) {
-      if (!queueIds.has(id) && !treatingIds.has(id)) {
+      if (!queueIds.has(id) && !checkinIds.has(id) && !treatingIds.has(id)) {
         this.scene.remove(mesh);
         this.patientMeshes.delete(id);
         const heart = this.heartSprites.get(id);
@@ -941,6 +942,28 @@ export class HospitalRenderer {
       const row = Math.floor(idx / 4);
       const col = idx % 4;
       mesh.position.set(recDef.x - 6 + col * 4, 0, recDef.z + HALF + 6 + row * 4);
+
+      if (patient.mood !== undefined) {
+        const moodColor = this.game.getMoodColor(patient.mood);
+        this.showMoodIndicator(patient.id, mesh, moodColor);
+      }
+    });
+
+    this.game.checkingInPatients.forEach((patient, idx) => {
+      let mesh = this.patientMeshes.get(patient.id);
+      if (!mesh) {
+        mesh = this.createCharacter(PATIENT_GOWN, 0.85, patient.color);
+        this.scene.add(mesh);
+        this.patientMeshes.set(patient.id, mesh);
+      }
+      const row = Math.floor(idx / 2);
+      const col = idx % 2;
+      mesh.position.set(ROOM_DEFS[0].x - 2 + col * 3, 0, ROOM_DEFS[0].z + HALF + 10 + row * 3);
+
+      if (patient.mood !== undefined) {
+        const moodColor = this.game.getMoodColor(patient.mood);
+        this.showMoodIndicator(patient.id, mesh, moodColor);
+      }
     });
 
     this.game.activeTreatments.forEach(({ patient, staff }) => {
@@ -953,6 +976,11 @@ export class HospitalRenderer {
       const staffMesh = this.staffMeshes.get(staff.id);
       if (staffMesh) {
         mesh.position.set(staffMesh.position.x + 1.4, 0, staffMesh.position.z);
+      }
+
+      if (patient.mood !== undefined) {
+        const moodColor = this.game.getMoodColor(patient.mood);
+        this.showMoodIndicator(patient.id, mesh, moodColor);
       }
     });
   }

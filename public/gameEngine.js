@@ -48,13 +48,14 @@ class GameEngine {
     }));
 
     // Room unlock requirements — must hit ALL to unlock
+    // Treatment times scale: examination (1x), pharmacy (1.2x), lab (1.5x), surgery (2x), icu (2.5x)
     this.roomUnlocks = {
       reception: { prestige: 0, money: 0, reputation: 0, patients: 0 },
-      examination: { prestige: 0, money: 1000, reputation: 50, patients: 25 },
-      surgery: { prestige: 2, money: 50000, reputation: 500, patients: 200 },
-      icu: { prestige: 5, money: 150000, reputation: 2000, patients: 500 },
-      pharmacy: { prestige: 1, money: 5000, reputation: 100, patients: 50 },
-      lab: { prestige: 3, money: 25000, reputation: 750, patients: 300 },
+      pharmacy: { prestige: 0, money: 2500, reputation: 80, patients: 30 },
+      examination: { prestige: 0, money: 5000, reputation: 150, patients: 60 },
+      lab: { prestige: 1, money: 20000, reputation: 400, patients: 150 },
+      surgery: { prestige: 3, money: 100000, reputation: 1500, patients: 400 },
+      icu: { prestige: 8, money: 500000, reputation: 5000, patients: 1200 },
     };
 
     // Purchasable furniture/equipment per room type — each owned item multiplies
@@ -280,6 +281,16 @@ class GameEngine {
     if (room) {
       const furnitureBonus = this.getFurnitureBonus(room);
       duration = duration / furnitureBonus;
+
+      const roomMult = {
+        reception: 0.8,
+        pharmacy: 1.2,
+        examination: 1.0,
+        lab: 1.5,
+        surgery: 2.0,
+        icu: 2.5,
+      };
+      duration = duration * (roomMult[room.type] || 1.0);
     }
     return Math.max(0.3, duration);
   }
