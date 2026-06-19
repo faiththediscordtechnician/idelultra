@@ -11,79 +11,76 @@ class GameUI {
     );
     this.setupUI();
     this.attachEventListeners();
-    this.renderLoop();
+    this.updateUI();
+    this.startUILoop();
   }
 
   setupContainer() {
     const root = document.getElementById('root');
     root.innerHTML = `
-      <div class="game-layout">
-        <div id="hospital-canvas" class="hospital-view"></div>
+      <div class="game-container">
+        <div id="hospital-canvas" class="viewport"></div>
 
-        <div class="hud-overlay">
-          <!-- Top Left: Stats -->
-          <div class="hud-panel top-left">
-            <div class="stat-group">
+        <div class="hud">
+          <!-- Top Stats Panel -->
+          <div class="panel stats-panel">
+            <div class="stat-item">
               <div class="stat-label">💰 Money</div>
-              <div class="stat-value" id="money">$0</div>
+              <div class="stat-value" id="moneyDisplay">$0</div>
+              <div class="stat-rate" id="mpsDisplay">+$0/s</div>
             </div>
-            <div class="stat-group">
+            <div class="stat-item">
               <div class="stat-label">⭐ Reputation</div>
-              <div class="stat-value" id="reputation">0</div>
+              <div class="stat-value" id="repDisplay">0</div>
             </div>
-            <div class="stat-group">
-              <div class="stat-label">📊 /sec</div>
-              <div class="stat-value" id="mps">$0</div>
-            </div>
-          </div>
-
-          <!-- Top Right: Hospital Info -->
-          <div class="hud-panel top-right">
-            <div class="hospital-info">
-              <h3 id="hospital-name">Community Clinic</h3>
-              <div class="hospital-status">
-                <span class="badge">Prestige: <strong id="prestige">0</strong></span>
-              </div>
+            <div class="stat-item">
+              <div class="stat-label">✨ Prestige</div>
+              <div class="stat-value" id="prestigeDisplay">0</div>
             </div>
           </div>
 
-          <!-- Bottom Left: Patient Queue -->
-          <div class="hud-panel bottom-left">
-            <h3>👥 Patient Queue</h3>
-            <div class="patient-queue" id="patientQueue">
-              <div class="empty">No patients</div>
-            </div>
-            <button id="servePatientBtn" class="btn btn-primary">
-              Serve Patient
+          <!-- Hospital Info Panel -->
+          <div class="panel hospital-panel">
+            <div class="hospital-name" id="hospitalName">Community Clinic</div>
+            <div class="hospital-multiplier" id="multiplierDisplay">×1.0 income</div>
+          </div>
+
+          <!-- Left Panel: Patients & Rooms -->
+          <div class="panel left-panel">
+            <div class="panel-title">🏥 Rooms & Operations</div>
+            <div id="roomsContainer" class="rooms-grid"></div>
+          </div>
+
+          <!-- Right Panel: Staff -->
+          <div class="panel right-panel">
+            <div class="panel-title">👥 Staff</div>
+            <div id="staffContainer" class="staff-grid"></div>
+          </div>
+
+          <!-- Bottom Panel: Patient Queue -->
+          <div class="panel patient-panel">
+            <div class="panel-title">Queue <span id="queueCount">(0)</span></div>
+            <div id="patientQueue" class="patient-list"></div>
+            <button id="serveBtn" class="btn btn-primary">
+              <span class="btn-text">Serve Patient</span>
+              <span class="btn-icon">💊</span>
             </button>
           </div>
 
-          <!-- Bottom Right: Quick Actions -->
-          <div class="hud-panel bottom-right">
-            <div class="action-tabs">
-              <button class="tab-btn active" data-tab="staff">👥 Staff</button>
-              <button class="tab-btn" data-tab="missions">📋 Missions</button>
-              <button class="tab-btn" data-tab="prestige">✨ Prestige</button>
-            </div>
-            <div class="tab-content" id="staffTab">
-              <!-- Staff panel content -->
-            </div>
-            <div class="tab-content hidden" id="missionsTab">
-              <!-- Missions panel content -->
-            </div>
-            <div class="tab-content hidden" id="prestigeTab">
-              <!-- Prestige panel content -->
+          <!-- Prestige Panel -->
+          <div class="panel prestige-panel">
+            <div class="prestige-info">
+              <div class="prestige-gain" id="prestigeGainDisplay">+0 prestige</div>
+              <button id="prestigeBtn" class="btn btn-prestige">
+                <span class="btn-text">Prestige Reset</span>
+                <span class="btn-icon">✨</span>
+              </button>
             </div>
           </div>
 
-          <!-- Center Bottom: Controls Info -->
-          <div class="hud-center-bottom">
-            <span class="tip">🖱️ Drag to move camera | Click rooms to interact</span>
-          </div>
+          <!-- Notification Container -->
+          <div id="notifications" class="notifications"></div>
         </div>
-
-        <!-- Notifications -->
-        <div id="notificationContainer" class="notification-container"></div>
       </div>
     `;
 
@@ -99,106 +96,90 @@ class GameUI {
         box-sizing: border-box;
       }
 
-      body {
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      html, body {
+        width: 100%;
+        height: 100%;
+        font-family: 'Segoe UI', 'Trebuchet MS', sans-serif;
         background: #0a0e17;
-        color: #e0e6ed;
         overflow: hidden;
       }
 
-      .game-layout {
-        width: 100vw;
-        height: 100vh;
+      #root {
+        width: 100%;
+        height: 100%;
+      }
+
+      .game-container {
+        width: 100%;
+        height: 100%;
+        display: flex;
         position: relative;
+      }
+
+      .viewport {
+        flex: 1;
         overflow: hidden;
       }
 
-      .hospital-view {
-        width: 100%;
-        height: 100%;
-        position: absolute;
-        top: 0;
-        left: 0;
-      }
-
-      .hud-overlay {
+      .hud {
         position: absolute;
         width: 100%;
         height: 100%;
-        top: 0;
-        left: 0;
         pointer-events: none;
       }
 
-      .hud-overlay > * {
-        pointer-events: auto;
-      }
-
-      .hud-panel {
+      .panel {
         position: absolute;
-        background: rgba(26, 31, 46, 0.95);
-        border: 1px solid #667eea;
-        border-radius: 8px;
+        background: rgba(15, 20, 35, 0.85);
+        border: 2px solid rgba(100, 150, 255, 0.3);
+        border-radius: 12px;
         padding: 16px;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-      }
-
-      .hud-panel h3 {
-        margin: 0 0 12px 0;
         font-size: 14px;
-        color: #667eea;
-        text-transform: uppercase;
+        color: #e0e0e0;
+        backdrop-filter: blur(10px);
+        pointer-events: auto;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        animation: slideIn 0.4s ease-out;
       }
 
-      .top-left {
-        top: 20px;
-        left: 20px;
-        min-width: 200px;
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
 
-      .top-right {
-        top: 20px;
-        right: 20px;
-        min-width: 250px;
-      }
-
-      .bottom-left {
-        bottom: 100px;
-        left: 20px;
-        width: 280px;
-        max-height: 300px;
-        overflow-y: auto;
-      }
-
-      .bottom-right {
-        bottom: 20px;
-        right: 20px;
-        width: 320px;
-        max-height: 400px;
-        overflow-y: auto;
-      }
-
-      .hud-center-bottom {
-        position: absolute;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(102, 126, 234, 0.2);
-        border: 1px solid #667eea;
-        border-radius: 20px;
-        padding: 8px 16px;
-        font-size: 12px;
-        color: #a0aec0;
-      }
-
-      .stat-group {
+      .panel-title {
+        font-weight: bold;
         margin-bottom: 12px;
+        font-size: 16px;
+        color: #64d9ff;
+      }
+
+      /* Stats Panel */
+      .stats-panel {
+        top: 16px;
+        left: 16px;
+        width: 300px;
+        display: flex;
+        gap: 16px;
+      }
+
+      .stat-item {
+        flex: 1;
+        background: rgba(100, 150, 255, 0.1);
+        padding: 12px;
+        border-radius: 8px;
+        border-left: 3px solid #64d9ff;
       }
 
       .stat-label {
-        font-size: 11px;
-        color: #a0aec0;
+        font-size: 12px;
+        color: #999;
         text-transform: uppercase;
         margin-bottom: 4px;
       }
@@ -206,437 +187,486 @@ class GameUI {
       .stat-value {
         font-size: 18px;
         font-weight: bold;
-        color: #4caf50;
+        color: #64d9ff;
       }
 
-      .hospital-info {
-        text-align: right;
-      }
-
-      .hospital-info h3 {
-        text-align: right;
-        color: #667eea;
-      }
-
-      .badge {
-        display: inline-block;
-        background: rgba(102, 126, 234, 0.2);
-        border: 1px solid #667eea;
-        border-radius: 4px;
-        padding: 4px 8px;
-        font-size: 11px;
+      .stat-rate {
+        font-size: 12px;
+        color: #4a9;
         margin-top: 4px;
       }
 
-      .patient-queue {
-        background: #0a0e17;
-        border-radius: 6px;
-        padding: 8px;
+      /* Hospital Panel */
+      .hospital-panel {
+        top: 16px;
+        right: 16px;
+        width: 250px;
+      }
+
+      .hospital-name {
+        font-size: 20px;
+        font-weight: bold;
+        color: #64d9ff;
         margin-bottom: 8px;
-        max-height: 150px;
+      }
+
+      .hospital-multiplier {
+        color: #4a9;
+        font-size: 14px;
+      }
+
+      /* Left Panel: Rooms */
+      .left-panel {
+        left: 16px;
+        top: 150px;
+        width: 350px;
+        max-height: 500px;
         overflow-y: auto;
       }
 
-      .patient-item {
-        background: #2d3748;
-        padding: 6px 8px;
-        border-radius: 4px;
-        margin-bottom: 6px;
-        font-size: 12px;
-        display: flex;
-        justify-content: space-between;
+      .rooms-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
       }
 
-      .patient-reward {
-        color: #4caf50;
+      .room-card {
+        background: rgba(100, 150, 255, 0.05);
+        border: 1px solid rgba(100, 150, 255, 0.2);
+        border-radius: 8px;
+        padding: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .room-card:hover {
+        background: rgba(100, 150, 255, 0.15);
+        border-color: rgba(100, 150, 255, 0.5);
+        transform: translateY(-2px);
+      }
+
+      .room-name {
+        font-weight: bold;
+        color: #64d9ff;
+        margin-bottom: 6px;
+        font-size: 13px;
+      }
+
+      .room-stats {
+        font-size: 12px;
+        color: #999;
+        line-height: 1.4;
+      }
+
+      .room-cost {
+        color: #f09;
+        margin-top: 6px;
         font-weight: bold;
       }
 
-      .empty {
-        color: #a0aec0;
-        text-align: center;
-        padding: 20px 0;
-        font-size: 12px;
+      /* Right Panel: Staff */
+      .right-panel {
+        right: 16px;
+        top: 150px;
+        width: 350px;
+        max-height: 500px;
+        overflow-y: auto;
       }
 
+      .staff-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .staff-card {
+        background: rgba(100, 150, 255, 0.05);
+        border: 1px solid rgba(100, 150, 255, 0.2);
+        border-radius: 8px;
+        padding: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .staff-card:hover {
+        background: rgba(100, 150, 255, 0.15);
+        border-color: rgba(100, 150, 255, 0.5);
+        transform: translateX(4px);
+      }
+
+      .staff-name {
+        font-weight: bold;
+        color: #64d9ff;
+        margin-bottom: 6px;
+      }
+
+      .staff-count {
+        font-size: 12px;
+        color: #999;
+        margin-bottom: 8px;
+      }
+
+      .staff-cost {
+        color: #f09;
+        font-weight: bold;
+      }
+
+      /* Patient Panel */
+      .patient-panel {
+        left: 16px;
+        bottom: 16px;
+        width: 350px;
+        max-height: 300px;
+      }
+
+      .patient-list {
+        max-height: 180px;
+        overflow-y: auto;
+        margin-bottom: 12px;
+      }
+
+      .patient-item {
+        background: rgba(100, 150, 255, 0.1);
+        padding: 8px;
+        border-radius: 6px;
+        margin-bottom: 6px;
+        font-size: 13px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        animation: slideIn 0.3s ease-out;
+      }
+
+      .patient-name {
+        color: #64d9ff;
+      }
+
+      .patient-reward {
+        color: #4a9;
+      }
+
+      /* Prestige Panel */
+      .prestige-panel {
+        right: 16px;
+        bottom: 16px;
+        width: 250px;
+      }
+
+      .prestige-info {
+        text-align: center;
+      }
+
+      .prestige-gain {
+        color: #f4a;
+        font-weight: bold;
+        margin-bottom: 12px;
+        font-size: 16px;
+      }
+
+      /* Buttons */
       .btn {
         width: 100%;
-        padding: 10px 12px;
+        padding: 12px;
         border: none;
-        border-radius: 6px;
+        border-radius: 8px;
+        font-weight: bold;
         cursor: pointer;
-        font-size: 12px;
-        font-weight: 600;
-        transition: all 0.2s ease;
-        background: #667eea;
-        color: white;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 14px;
+        pointer-events: auto;
       }
 
-      .btn:hover:not(:disabled) {
-        background: #5568d3;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+      .btn-text {
+        flex: 1;
+        text-align: left;
       }
 
-      .btn:disabled {
-        background: #4a5c99;
+      .btn-icon {
+        font-size: 18px;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #64d9ff, #4a9);
+        color: #000;
+        border: 2px solid #64d9ff;
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(100, 217, 255, 0.3);
+      }
+
+      .btn-primary:active {
+        transform: translateY(0);
+      }
+
+      .btn-primary:disabled {
         opacity: 0.5;
         cursor: not-allowed;
       }
 
-      .btn-primary {
-        background: #4caf50;
+      .btn-prestige {
+        background: linear-gradient(135deg, #f4a, #f84);
+        color: #fff;
+        border: 2px solid #f4a;
       }
 
-      .btn-primary:hover:not(:disabled) {
-        background: #45a049;
+      .btn-prestige:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(255, 68, 170, 0.3);
       }
 
-      .action-tabs {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 6px;
-        margin-bottom: 12px;
+      .btn-prestige:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
       }
 
-      .tab-btn {
-        padding: 6px 8px;
-        background: #2d3748;
-        border: 1px solid #667eea;
-        border-radius: 4px;
-        color: #a0aec0;
-        cursor: pointer;
-        font-size: 11px;
-        font-weight: 600;
-        transition: all 0.2s ease;
-      }
-
-      .tab-btn.active {
-        background: #667eea;
-        color: white;
-      }
-
-      .tab-btn:hover {
-        background: #3d4758;
-      }
-
-      .tab-content {
-        display: block;
-        background: #0a0e17;
-        border-radius: 6px;
-        padding: 8px;
-        font-size: 12px;
-      }
-
-      .tab-content.hidden {
-        display: none;
-      }
-
-      .staff-card {
-        background: #2d3748;
-        border-left: 3px solid #667eea;
-        padding: 8px;
-        margin-bottom: 6px;
-        border-radius: 4px;
-      }
-
-      .staff-card.intern {
-        border-left-color: #90caf9;
-      }
-
-      .staff-card.resident {
-        border-left-color: #81c784;
-      }
-
-      .staff-card.attending {
-        border-left-color: #ffb74d;
-      }
-
-      .staff-card.specialist {
-        border-left-color: #f06292;
-      }
-
-      .staff-card-name {
-        font-weight: bold;
-        margin-bottom: 2px;
-      }
-
-      .staff-card-info {
-        font-size: 11px;
-        color: #a0aec0;
-      }
-
-      .staff-hire-btn {
-        width: 100%;
-        padding: 6px;
-        margin-top: 6px;
-        font-size: 11px;
-      }
-
-      .mission-item {
-        background: #2d3748;
-        border-left: 3px solid #667eea;
-        padding: 8px;
-        margin-bottom: 6px;
-        border-radius: 4px;
-      }
-
-      .mission-item.completed {
-        border-left-color: #4caf50;
-        background: rgba(76, 175, 80, 0.1);
-      }
-
-      .mission-name {
-        font-weight: bold;
-        margin-bottom: 4px;
-        font-size: 12px;
-      }
-
-      .mission-progress {
-        background: #1a1f2e;
-        height: 4px;
-        border-radius: 2px;
-        overflow: hidden;
-        margin: 4px 0;
-      }
-
-      .mission-progress-bar {
-        height: 100%;
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        transition: width 0.3s ease;
-      }
-
-      .prestige-info {
-        background: #2d3748;
-        border-left: 3px solid #f093fb;
-        padding: 10px;
-        border-radius: 4px;
-        margin-bottom: 12px;
-        font-size: 12px;
-      }
-
-      .prestige-gain {
-        font-weight: bold;
-        color: #f093fb;
-        margin: 8px 0;
-      }
-
-      .notification-container {
+      /* Notifications */
+      .notifications {
         position: fixed;
-        top: 100px;
+        top: 20px;
         right: 20px;
-        pointer-events: none;
         z-index: 1000;
+        pointer-events: auto;
       }
 
       .notification {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
+        background: rgba(15, 20, 35, 0.95);
+        border: 2px solid #64d9ff;
+        border-radius: 8px;
         padding: 12px 16px;
-        border-radius: 6px;
         margin-bottom: 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-        animation: slideIn 0.3s ease, slideOut 0.3s ease 2.7s;
-        font-size: 12px;
-        font-weight: 600;
+        color: #64d9ff;
+        animation: notificationSlideIn 0.3s ease-out;
+        max-width: 300px;
+        backdrop-filter: blur(10px);
       }
 
-      @keyframes slideIn {
+      .notification.success {
+        border-color: #4a9;
+        color: #4a9;
+      }
+
+      .notification.achievement {
+        border-color: #f4a;
+        color: #f4a;
+      }
+
+      @keyframes notificationSlideIn {
         from {
-          transform: translateX(400px);
           opacity: 0;
+          transform: translateX(300px);
         }
         to {
-          transform: translateX(0);
           opacity: 1;
+          transform: translateX(0);
         }
       }
 
-      @keyframes slideOut {
+      @keyframes notificationSlideOut {
         from {
-          transform: translateX(0);
           opacity: 1;
+          transform: translateX(0);
         }
         to {
-          transform: translateX(400px);
           opacity: 0;
+          transform: translateX(300px);
         }
       }
 
       /* Scrollbars */
-      .bottom-left::-webkit-scrollbar,
-      .bottom-right::-webkit-scrollbar {
+      ::-webkit-scrollbar {
         width: 6px;
       }
 
-      .bottom-left::-webkit-scrollbar-track,
-      .bottom-right::-webkit-scrollbar-track {
-        background: #1a1f2e;
+      ::-webkit-scrollbar-track {
+        background: rgba(100, 150, 255, 0.05);
       }
 
-      .bottom-left::-webkit-scrollbar-thumb,
-      .bottom-right::-webkit-scrollbar-thumb {
-        background: #667eea;
+      ::-webkit-scrollbar-thumb {
+        background: rgba(100, 150, 255, 0.3);
         border-radius: 3px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(100, 150, 255, 0.5);
       }
     `;
     document.head.appendChild(style);
   }
 
   setupUI() {
-    // Tab switching
-    document.querySelectorAll('.tab-btn').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach((t) => t.classList.add('hidden'));
-        e.target.classList.add('active');
-        const tabId = e.target.dataset.tab + 'Tab';
-        document.getElementById(tabId).classList.remove('hidden');
-      });
+    // Rooms
+    const roomsContainer = document.getElementById('roomsContainer');
+    this.game.rooms.forEach((room, idx) => {
+      const card = document.createElement('div');
+      card.className = 'room-card';
+      card.innerHTML = `
+        <div class="room-name">${room.icon} ${room.name}</div>
+        <div class="room-stats">
+          <div>Owned: <strong id="room-owned-${idx}">0</strong></div>
+          <div>Level: <strong id="room-level-${idx}">1</strong></div>
+          <div>Output: <strong id="room-output-${idx}">0</strong>/s</div>
+        </div>
+        <div class="room-cost">
+          <button class="btn btn-primary" style="margin-top: 8px; padding: 8px;" onclick="gameUI.buyRoom(${idx})">Buy ($<span id="room-cost-${idx}">0</span>)</button>
+          <button class="btn" style="margin-top: 6px; padding: 8px; background: rgba(100, 150, 255, 0.1); border: 1px solid rgba(100, 150, 255, 0.2); color: #64d9ff;" onclick="gameUI.upgradeRoom(${idx})">Upgrade ($<span id="room-upgrade-${idx}">0</span>)</button>
+        </div>
+      `;
+      roomsContainer.appendChild(card);
     });
 
-    // Serve patient button
-    document.getElementById('servePatientBtn').addEventListener('click', () => {
-      this.servePatient();
+    // Staff
+    const staffContainer = document.getElementById('staffContainer');
+    const tiers = ['intern', 'resident', 'attending', 'specialist'];
+    tiers.forEach((tier) => {
+      const tierData = this.game.staffTiers[tier];
+      const card = document.createElement('div');
+      card.className = 'staff-card';
+      card.innerHTML = `
+        <div class="staff-name">${tierData.name}</div>
+        <div class="staff-count">Hired: <strong id="staff-count-${tier}">0</strong></div>
+        <div class="staff-cost">
+          <button class="btn btn-primary" style="padding: 8px;" onclick="gameUI.hireStaff('${tier}')">Hire ($<span id="staff-cost-${tier}">1000</span>)</button>
+        </div>
+      `;
+      staffContainer.appendChild(card);
     });
+
+    // Patient Queue
+    document.getElementById('serveBtn').addEventListener('click', () => this.servePatient());
+
+    // Prestige button
+    document.getElementById('prestigeBtn').addEventListener('click', () => this.prestige());
+
+    // Connect game events
+    this.game.on('staffHired', () => this.showNotification('Staff hired! 👥', 'success'));
+    this.game.on('roomBought', () => this.showNotification('Room purchased! 🏗️', 'success'));
+    this.game.on('roomUpgraded', () => this.showNotification('Room upgraded! ⚡', 'success'));
+    this.game.on('missionCompleted', (mission) => this.showNotification(`Achievement: ${mission.name}! 🏆`, 'achievement'));
+    this.game.on('patientTypeUnlocked', (pt) => this.showNotification(`Unlocked: ${pt.icon} ${pt.name}`, 'success'));
   }
 
-  attachEventListeners() {}
+  attachEventListeners() {
+    window.gameUI = this;
+  }
+
+  buyRoom(idx) {
+    if (this.game.buyRoom(idx)) {
+      this.updateUI();
+    }
+  }
+
+  upgradeRoom(idx) {
+    if (this.game.upgradeRoom(idx)) {
+      this.updateUI();
+    }
+  }
+
+  hireStaff(tier) {
+    if (this.game.hireStaff(tier)) {
+      this.updateUI();
+    }
+  }
 
   servePatient() {
     const patient = this.game.servePatient();
     if (patient) {
-      this.showNotification(`Served ${patient.name} +$${patient.revenuePerPatient}`);
+      this.updateUI();
     }
   }
 
-  showNotification(text) {
-    const container = document.getElementById('notificationContainer');
-    const notif = document.createElement('div');
-    notif.className = 'notification';
-    notif.textContent = text;
-    container.appendChild(notif);
-    setTimeout(() => notif.remove(), 3000);
+  prestige() {
+    const gain = this.game.prestige();
+    if (gain > 0) {
+      this.showNotification(`Prestiged! +${gain} Prestige ✨`, 'achievement');
+      this.updateUI();
+    }
+  }
+
+  updateUI() {
+    // Stats
+    document.getElementById('moneyDisplay').textContent = this.formatMoney(this.game.money);
+    document.getElementById('mpsDisplay').textContent = `+${this.formatMoney(this.game.moneyPerSecond)}/s`;
+    document.getElementById('repDisplay').textContent = this.formatMoney(this.game.reputation);
+    document.getElementById('prestigeDisplay').textContent = this.game.totalPrestige;
+
+    // Hospital
+    const hospital = this.game.hospitals[this.game.currentHospital];
+    document.getElementById('hospitalName').textContent = hospital.name;
+    document.getElementById('multiplierDisplay').textContent = `×${hospital.incomeMultiplier} income`;
+
+    // Rooms
+    this.game.rooms.forEach((room, idx) => {
+      document.getElementById(`room-owned-${idx}`).textContent = room.owned;
+      document.getElementById(`room-level-${idx}`).textContent = room.level;
+      document.getElementById(`room-output-${idx}`).textContent = Math.floor(this.game.getRoomProduction(room));
+      document.getElementById(`room-cost-${idx}`).textContent = Math.floor(this.game.getRoomCost(room));
+      document.getElementById(`room-upgrade-${idx}`).textContent = Math.floor(this.game.getRoomCost(room) * 0.5);
+    });
+
+    // Staff
+    const tiers = ['intern', 'resident', 'attending', 'specialist'];
+    tiers.forEach((tier) => {
+      const count = this.game.staffByTier[tier].length;
+      document.getElementById(`staff-count-${tier}`).textContent = count;
+      document.getElementById(`staff-cost-${tier}`).textContent = this.game.getStaffCost(tier);
+    });
+
+    // Patient Queue
+    const queueContainer = document.getElementById('patientQueue');
+    queueContainer.innerHTML = '';
+    this.game.patientQueue.slice(0, 6).forEach((patient) => {
+      const item = document.createElement('div');
+      item.className = 'patient-item';
+      item.innerHTML = `
+        <span class="patient-name">${patient.icon} ${patient.name}</span>
+        <span class="patient-reward">+$${patient.revenuePerPatient}</span>
+      `;
+      queueContainer.appendChild(item);
+    });
+    document.getElementById('queueCount').textContent = `(${this.game.patientQueue.length})`;
+
+    // Prestige
+    const prestigeGain = this.game.getPrestigeGain();
+    document.getElementById('prestigeGainDisplay').textContent = `+${prestigeGain} prestige`;
+    document.getElementById('prestigeBtn').disabled = prestigeGain === 0;
+  }
+
+  startUILoop() {
+    setInterval(() => this.updateUI(), 100);
   }
 
   formatMoney(num) {
-    if (num >= 1000000000) return (num / 1000000000).toFixed(2) + 'B';
-    if (num >= 1000000) return (num / 1000000).toFixed(2) + 'M';
-    if (num >= 1000) return (num / 1000).toFixed(2) + 'K';
+    if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+    if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+    if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
     return Math.floor(num).toString();
   }
 
-  renderStats() {
-    document.getElementById('money').textContent = '$' + this.formatMoney(this.game.money);
-    document.getElementById('reputation').textContent = this.game.reputation;
-    document.getElementById('mps').textContent = '$' + this.formatMoney(this.game.moneyPerSecond);
-    document.getElementById('prestige').textContent = this.game.totalPrestige;
-    document.getElementById('hospital-name').textContent = this.game.hospitals[this.game.currentHospital].name;
-    document.getElementById('servePatientBtn').disabled = this.game.patientQueue.length === 0;
-  }
+  showNotification(text, type = 'info') {
+    const container = document.getElementById('notifications');
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = text;
+    container.appendChild(notification);
 
-  renderPatientQueue() {
-    const container = document.getElementById('patientQueue');
-    if (this.game.patientQueue.length === 0) {
-      container.innerHTML = '<div class="empty">No patients waiting</div>';
-    } else {
-      container.innerHTML = this.game.patientQueue
-        .slice(0, 5)
-        .map(
-          (p) =>
-            `<div class="patient-item">
-              <span>${p.icon} ${p.name}</span>
-              <span class="patient-reward">+$${p.revenuePerPatient}</span>
-            </div>`
-        )
-        .join('');
-    }
-  }
-
-  renderStaffTab() {
-    const container = document.getElementById('staffTab');
-    let html = '';
-
-    Object.entries(this.game.staffTiers).forEach(([tier, tierData]) => {
-      const count = this.game.staffByTier[tier].length;
-      const cost = this.game.getStaffCost(tier);
-      const canAfford = this.game.money >= cost && (tier === 'intern' || this.game.reputation >= tierData.reputationCost);
-
-      html += `
-        <div style="margin-bottom: 12px;">
-          <div style="font-weight: bold; color: #667eea; margin-bottom: 8px;">${tierData.name} (${count})</div>
-          <button class="staff-hire-btn" data-tier="${tier}" ${!canAfford ? 'disabled' : ''} style="width: 100%; padding: 6px; font-size: 11px;">
-            Hire: $${this.formatMoney(cost)}
-          </button>
-        </div>
-      `;
-    });
-
-    container.innerHTML = html;
-
-    container.querySelectorAll('.staff-hire-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        this.game.hireStaff(btn.dataset.tier);
-      });
-    });
-  }
-
-  renderMissionsTab() {
-    const container = document.getElementById('missionsTab');
-    container.innerHTML = this.game.missions
-      .map((m) => {
-        const progress = Math.min(100, (m.current / m.target) * 100);
-        return `
-        <div class="mission-item ${m.completed ? 'completed' : ''}">
-          <div class="mission-name">${m.completed ? '✓ ' : ''}${m.name}</div>
-          <div class="mission-progress">
-            <div class="mission-progress-bar" style="width: ${progress}%"></div>
-          </div>
-          <div style="font-size: 10px; color: #a0aec0;">${m.current}/${m.target}</div>
-        </div>
-      `;
-      })
-      .join('');
-  }
-
-  renderPrestigeTab() {
-    const container = document.getElementById('prestigeTab');
-    const gain = this.game.getPrestigeGain();
-    const multiplier = this.game.getPrestigeMultiplier();
-
-    container.innerHTML = `
-      <div class="prestige-info">
-        <div style="color: #a0aec0;">Prestige Multiplier</div>
-        <div class="prestige-gain">${((multiplier - 1) * 100).toFixed(0)}% Bonus</div>
-        <div style="font-size: 11px; color: #a0aec0; margin: 8px 0;">
-          Current prestige points: <strong>${this.game.totalPrestige}</strong>
-        </div>
-      </div>
-      <button class="btn btn-primary" id="prestigeBtn" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-        Prestige (${gain} points)
-      </button>
-    `;
-
-    document.getElementById('prestigeBtn').addEventListener('click', () => {
-      this.game.prestige();
-      this.showNotification(`Prestige! +${gain} points`);
-    });
-  }
-
-  renderLoop() {
-    this.renderStats();
-    this.renderPatientQueue();
-    this.renderStaffTab();
-    this.renderMissionsTab();
-    this.renderPrestigeTab();
-    requestAnimationFrame(() => this.renderLoop());
+    setTimeout(() => {
+      notification.style.animation = 'notificationSlideOut 0.3s ease-out';
+      setTimeout(() => notification.remove(), 300);
+    }, 3000);
   }
 }
 
+// Start the game when DOM is ready
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    new GameUI();
+    window.gameUI = new GameUI();
   });
 } else {
-  new GameUI();
+  window.gameUI = new GameUI();
 }

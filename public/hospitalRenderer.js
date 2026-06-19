@@ -6,24 +6,27 @@ export class HospitalRenderer {
     this.container = container;
     this.clock = new THREE.Clock();
 
-    // Scene
+    // Scene setup
     this.scene = new THREE.Scene();
-    this.updateSceneTheme();
-    this.scene.fog = new THREE.Fog(0x87ceeb, 200, 400);
+    this.scene.background = new THREE.Color(0x1a1a2e);
+    this.scene.fog = new THREE.Fog(0x1a1a2e, 300, 600);
 
-    // Camera
+    // Camera setup
     const width = container.clientWidth || window.innerWidth;
     const height = container.clientHeight || window.innerHeight;
-    this.camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
-    this.camera.position.set(40, 50, 40);
+    this.camera = new THREE.PerspectiveCamera(65, width / height, 0.1, 2000);
+    this.camera.position.set(0, 60, 80);
     this.camera.lookAt(0, 0, 0);
 
-    // Renderer
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    // Renderer with post-processing
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, precision: 'highp' });
     this.renderer.setSize(width, height);
-    this.renderer.setPixelRatio(window.devicePixelRatio);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowShadowMap;
+    this.renderer.shadowMap.resolution = 2048;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 0.8;
     this.renderer.domElement.style.display = 'block';
     this.renderer.domElement.style.width = '100%';
     this.renderer.domElement.style.height = '100%';
@@ -32,62 +35,61 @@ export class HospitalRenderer {
     // Lighting
     this.setupLighting();
 
+    // Collections
+    this.roomMeshes = new Map();
+    this.characterPool = [];
+    this.particleSystem = new ParticleSystem(this.scene);
+
     // Camera controls
     this.setupCameraControls();
 
-    // Collections
-    this.roomObjects = new Map();
-    this.patientObjects = [];
-    this.staffObjects = [];
-
-    // Build
+    // Build hospital
     this.buildHospital();
 
-    // Resize
+    // Connect game events
+    this.setupGameEvents();
+
+    // Resize handler
     window.addEventListener('resize', () => this.onWindowResize());
 
-    // Animate
+    // Animation loop
     this.animate();
 
-    console.log('🏥 Hospital Renderer initialized - Scene objects:', this.scene.children.length);
-  }
-
-  updateSceneTheme() {
-    const themes = {
-      0: { bg: 0xe3f2fd, fog: 0xbbdefb },
-      1: { bg: 0xb3e5fc, fog: 0x81d4fa },
-      2: { bg: 0x80deea, fog: 0x4dd0e1 },
-      3: { bg: 0x4dd0e1, fog: 0x26c6da },
-      4: { bg: 0x0097a7, fog: 0x00838f },
-    };
-    const theme = themes[this.game.currentHospital] || themes[0];
-    this.scene.background = new THREE.Color(theme.bg);
-    if (this.scene.fog) this.scene.fog.color = new THREE.Color(theme.fog);
+    console.log('🏥 Hospital Renderer initialized');
   }
 
   setupLighting() {
-    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+    // Ambient light for base illumination
+    const ambient = new THREE.AmbientLight(0xffffff, 0.5);
     this.scene.add(ambient);
 
-    const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-    sun.position.set(60, 100, 60);
-    sun.castShadow = true;
-    sun.shadow.mapSize.width = 1024;
-    sun.shadow.mapSize.height = 1024;
-    sun.shadow.camera.left = -200;
-    sun.shadow.camera.right = 200;
-    sun.shadow.camera.top = 200;
-    sun.shadow.camera.bottom = -200;
-    this.scene.add(sun);
+    // Main directional light (sun)
+    this.mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    this.mainLight.position.set(100, 120, 100);
+    this.mainLight.castShadow = true;
+    this.mainLight.shadow.mapSize.set(2048, 2048);
+    this.mainLight.shadow.camera.left = -200;
+    this.mainLight.shadow.camera.right = 200;
+    this.mainLight.shadow.camera.top = 200;
+    this.mainLight.shadow.camera.bottom = -200;
+    this.mainLight.shadow.camera.far = 500;
+    this.scene.add(this.mainLight);
 
-    const fill = new THREE.DirectionalLight(0xccffcc, 0.3);
-    fill.position.set(-40, 60, -40);
-    this.scene.add(fill);
+    // Fill light for depth
+    const fillLight = new THREE.DirectionalLight(0x87ceeb, 0.4);
+    fillLight.position.set(-100, 80, -100);
+    this.scene.add(fillLight);
+
+    // Hemisphere light for natural lighting
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.3);
+    this.scene.add(hemiLight);
   }
 
   setupCameraControls() {
     this.isDragging = false;
     this.prevMouse = { x: 0, y: 0 };
+    this.targetCameraPos = this.camera.position.clone();
+    this.smoothSpeed = 0.1;
 
     this.renderer.domElement.addEventListener('mousedown', (e) => {
       this.isDragging = true;
@@ -96,10 +98,16 @@ export class HospitalRenderer {
 
     this.renderer.domElement.addEventListener('mousemove', (e) => {
       if (this.isDragging) {
-        const dx = e.clientX - this.prevMouse.x;
-        const dy = e.clientY - this.prevMouse.y;
-        this.camera.position.x -= dx * 0.1;
-        this.camera.position.z -= dy * 0.1;
+        const dx = (e.clientX - this.prevMouse.x) * 0.15;
+        const dy = (e.clientY - this.prevMouse.y) * 0.15;
+
+        this.targetCameraPos.x -= dx;
+        this.targetCameraPos.z -= dy;
+
+        // Clamp camera position
+        this.targetCameraPos.x = Math.max(-150, Math.min(150, this.targetCameraPos.x));
+        this.targetCameraPos.z = Math.max(-150, Math.min(150, this.targetCameraPos.z));
+
         this.prevMouse = { x: e.clientX, y: e.clientY };
       }
     });
@@ -111,208 +119,279 @@ export class HospitalRenderer {
     this.renderer.domElement.addEventListener('mouseleave', () => {
       this.isDragging = false;
     });
+
+    // Mouse wheel zoom
+    this.renderer.domElement.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      this.targetCameraPos.y += e.deltaY * 0.05;
+      this.targetCameraPos.y = Math.max(30, Math.min(150, this.targetCameraPos.y));
+    });
   }
 
   buildHospital() {
-    // Ground
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(200, 200),
-      new THREE.MeshStandardMaterial({ color: 0xf5f5f5, roughness: 0.8 })
-    );
+    // Ground plane
+    const groundGeo = new THREE.PlaneGeometry(300, 300);
+    const groundMat = new THREE.MeshStandardMaterial({
+      color: 0x2a2a3e,
+      roughness: 0.8,
+      metalness: 0.1,
+    });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
+    ground.position.y = 0;
     this.scene.add(ground);
 
-    // Grid
-    const grid = new THREE.GridHelper(200, 40, 0xcccccc, 0xeeeeee);
-    grid.position.y = 0.01;
-    this.scene.add(grid);
+    // Grid for visual reference
+    const gridHelper = new THREE.GridHelper(300, 30, 0x444444, 0x333333);
+    gridHelper.position.y = 0.01;
+    this.scene.add(gridHelper);
 
-    // Create rooms
+    // Create room structures
     this.createRooms();
+
+    // Create decorative elements
+    this.createEnvironment();
   }
 
   createRooms() {
     const positions = [
-      { x: -25, z: -25, color: 0x4CAF50, name: 'Reception' },
-      { x: 0, z: -25, color: 0x2196F3, name: 'Exam' },
-      { x: 25, z: -25, color: 0xFF6B6B, name: 'Surgery' },
-      { x: -25, z: 0, color: 0xFF9800, name: 'ICU' },
-      { x: 0, z: 0, color: 0x9C27B0, name: 'Pharmacy' },
-      { x: 25, z: 0, color: 0x00BCD4, name: 'Lab' },
+      { x: -50, z: -50, name: 'Reception' },
+      { x: 0, z: -50, name: 'Exam' },
+      { x: 50, z: -50, name: 'Surgery' },
+      { x: -50, z: 0, name: 'ICU' },
+      { x: 0, z: 0, name: 'Pharmacy' },
+      { x: 50, z: 0, name: 'Lab' },
     ];
 
     positions.forEach((pos, idx) => {
       const room = this.game.rooms[idx];
       const group = new THREE.Group();
+      group.position.set(pos.x, 0, pos.z);
 
-      // Floor
-      const floor = new THREE.Mesh(
-        new THREE.BoxGeometry(14, 0.4, 14),
-        new THREE.MeshStandardMaterial({ color: pos.color, roughness: 0.6 })
-      );
-      floor.position.y = 0.2;
+      // Floor with gradient
+      const floorGeo = new THREE.BoxGeometry(35, 0.5, 35);
+      const floorMat = new THREE.MeshStandardMaterial({
+        color: room.color,
+        roughness: 0.7,
+        metalness: 0.05,
+      });
+      const floor = new THREE.Mesh(floorGeo, floorMat);
+      floor.position.y = 0.25;
       floor.castShadow = true;
       floor.receiveShadow = true;
       group.add(floor);
 
       // Walls
-      const wallMat = new THREE.MeshStandardMaterial({ color: 0xfafafa, roughness: 0.9 });
+      const wallMat = new THREE.MeshStandardMaterial({
+        color: 0xfafafa,
+        roughness: 0.9,
+      });
 
-      const frontWall = new THREE.Mesh(new THREE.BoxGeometry(14, 6, 0.3), wallMat);
-      frontWall.position.y = 3;
-      frontWall.position.z = -7;
+      // Front wall
+      const frontWall = new THREE.Mesh(new THREE.BoxGeometry(35, 12, 0.5), wallMat);
+      frontWall.position.set(0, 6, -17.75);
       frontWall.castShadow = true;
+      frontWall.receiveShadow = true;
       group.add(frontWall);
 
-      const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.3, 6, 14), wallMat);
-      rightWall.position.y = 3;
-      rightWall.position.x = 7;
+      // Right wall
+      const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.5, 12, 35), wallMat);
+      rightWall.position.set(17.75, 6, 0);
       rightWall.castShadow = true;
+      rightWall.receiveShadow = true;
       group.add(rightWall);
 
-      // Sign
-      const signGeo = new THREE.PlaneGeometry(4, 2);
-      const signTex = this.createSignTexture(pos.name, pos.color);
-      const signMat = new THREE.MeshStandardMaterial({ map: signTex });
+      // Ceiling
+      const ceilingMat = new THREE.MeshStandardMaterial({
+        color: 0xf5f5f5,
+        roughness: 0.8,
+        emissive: 0x222222,
+      });
+      const ceiling = new THREE.Mesh(new THREE.BoxGeometry(35, 0.5, 35), ceilingMat);
+      ceiling.position.y = 12.25;
+      ceiling.receiveShadow = true;
+      group.add(ceiling);
+
+      // Ceiling lights
+      for (let i = 0; i < 4; i++) {
+        const lightX = -8.75 + (i % 2) * 17.5;
+        const lightZ = -8.75 + Math.floor(i / 2) * 17.5;
+        const light = new THREE.PointLight(0xffffff, 0.5, 20);
+        light.position.set(lightX, 11, lightZ);
+        light.castShadow = true;
+        group.add(light);
+      }
+
+      // Room sign
+      const signGeo = new THREE.BoxGeometry(8, 4, 0.2);
+      const signMat = new THREE.MeshStandardMaterial({
+        color: room.color,
+        roughness: 0.5,
+        metalness: 0.8,
+        emissive: room.color,
+        emissiveIntensity: 0.2,
+      });
       const sign = new THREE.Mesh(signGeo, signMat);
-      sign.position.set(0, 5, -7.2);
+      sign.position.set(0, 13, -17.8);
+      sign.castShadow = true;
       group.add(sign);
 
-      // Position group
-      group.position.set(pos.x, 0, pos.z);
-      this.scene.add(group);
-      this.roomObjects.set(idx, group);
-    });
+      // Add text label to canvas
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#' + room.color.toString(16).padStart(6, '0');
+      ctx.fillRect(0, 0, 256, 128);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 32px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(room.name, 128, 64);
 
-    console.log('✅ Created', positions.length, 'rooms');
-  }
-
-  createSignTexture(text, color) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-
-    ctx.fillStyle = '#' + color.toString(16).padStart(6, '0');
-    ctx.fillRect(0, 0, 256, 128);
-
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 32px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(text, 128, 80);
-
-    return new THREE.CanvasTexture(canvas);
-  }
-
-  updatePatients() {
-    this.patientObjects.forEach((p) => this.scene.remove(p));
-    this.patientObjects = [];
-
-    this.game.patientQueue.slice(0, 8).forEach((patient, i) => {
-      const group = new THREE.Group();
-
-      const head = new THREE.Mesh(
-        new THREE.SphereGeometry(0.5, 16, 16),
-        new THREE.MeshStandardMaterial({ color: 0xfdbcb4 })
-      );
-      head.position.y = 1.5;
-      head.castShadow = true;
-      group.add(head);
-
-      const body = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.4, 0.4, 1, 16),
-        new THREE.MeshStandardMaterial({ color: i % 2 ? 0x2196F3 : 0x4CAF50 })
-      );
-      body.position.y = 0.8;
-      body.castShadow = true;
-      group.add(body);
-
-      const row = Math.floor(i / 4);
-      const col = i % 4;
-      group.position.set(-20 + col * 3, 0, -20 - row * 2);
+      const texture = new THREE.CanvasTexture(canvas);
+      const textMat = new THREE.MeshStandardMaterial({ map: texture });
+      const textMesh = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 0.1), textMat);
+      textMesh.position.set(0, 13, -17.7);
+      group.add(textMesh);
 
       this.scene.add(group);
-      this.patientObjects.push(group);
+      this.roomMeshes.set(idx, group);
     });
   }
 
-  updateStaff() {
-    this.staffObjects.forEach((s) => this.scene.remove(s));
-    this.staffObjects = [];
-
-    let idx = 0;
-    Object.entries(this.game.staffByTier).forEach(([tier, staff]) => {
-      staff.slice(0, 2).forEach(() => {
-        const group = new THREE.Group();
-
-        const tierColors = {
-          intern: 0x90caf9,
-          resident: 0x81c784,
-          attending: 0xffb74d,
-          specialist: 0xf06292,
-        };
-
-        const head = new THREE.Mesh(
-          new THREE.SphereGeometry(0.4, 16, 16),
-          new THREE.MeshStandardMaterial({ color: 0xfdbcb4 })
-        );
-        head.position.y = 1.3;
-        head.castShadow = true;
-        group.add(head);
-
-        const body = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.35, 0.35, 0.8, 16),
-          new THREE.MeshStandardMaterial({ color: tierColors[tier] || 0x888 })
-        );
-        body.position.y = 0.6;
-        body.castShadow = true;
-        group.add(body);
-
-        const roomIdx = (idx % 5) + 1;
-        const pos = [
-          { x: -25, z: -25 },
-          { x: 0, z: -25 },
-          { x: 25, z: -25 },
-          { x: -25, z: 0 },
-          { x: 0, z: 0 },
-          { x: 25, z: 0 },
-        ][roomIdx];
-
-        group.position.set(
-          pos.x + (Math.random() - 0.5) * 5,
-          0,
-          pos.z + (Math.random() - 0.5) * 5
-        );
-
-        this.scene.add(group);
-        this.staffObjects.push(group);
-        idx++;
-      });
+  createEnvironment() {
+    // Skybox or simple sky effect
+    const skyGeo = new THREE.SphereGeometry(400, 32, 32);
+    const skyMat = new THREE.MeshStandardMaterial({
+      color: 0x1a1a2e,
+      side: THREE.BackSide,
+      emissive: 0x0a0a1a,
     });
+    const sky = new THREE.Mesh(skyGeo, skyMat);
+    this.scene.add(sky);
   }
 
-  onWindowResize() {
-    const w = this.container.clientWidth || window.innerWidth;
-    const h = this.container.clientHeight || window.innerHeight;
-    this.camera.aspect = w / h;
-    this.camera.updateProjectionMatrix();
-    this.renderer.setSize(w, h);
-    this.renderer.setPixelRatio(window.devicePixelRatio);
+  setupGameEvents() {
+    this.game.on('patientServed', (patient) => {
+      this.particleSystem.burst(patient.color, 10);
+    });
+
+    this.game.on('staffHired', ({ tier }) => {
+      this.particleSystem.burst(this.game.staffTiers[tier].color, 15);
+    });
+
+    this.game.on('roomBought', ({ room }) => {
+      this.particleSystem.burst(room.color, 20);
+    });
+
+    this.game.on('missionCompleted', () => {
+      this.particleSystem.burst(0xffd700, 25);
+    });
   }
 
   animate = () => {
     requestAnimationFrame(this.animate);
 
-    this.updatePatients();
-    this.updateStaff();
-    this.updateSceneTheme();
+    const deltaTime = this.clock.getDelta();
+
+    // Smooth camera movement
+    this.camera.position.lerp(this.targetCameraPos, this.smoothSpeed);
+    this.camera.lookAt(0, 10, 0);
+
+    // Update particles
+    this.particleSystem.update(deltaTime);
+
+    // Subtle light animation
+    const time = this.clock.getElapsedTime();
+    this.mainLight.intensity = 1.2 + Math.sin(time * 0.5) * 0.1;
 
     this.renderer.render(this.scene, this.camera);
   };
 
+  onWindowResize() {
+    const width = this.container.clientWidth || window.innerWidth;
+    const height = this.container.clientHeight || window.innerHeight;
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(width, height);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  }
+
   dispose() {
     this.renderer.dispose();
     this.container.removeChild(this.renderer.domElement);
+  }
+}
+
+class ParticleSystem {
+  constructor(scene) {
+    this.scene = scene;
+    this.particles = [];
+    this.poolSize = 500;
+    this.pool = [];
+
+    // Create pool of particles
+    for (let i = 0; i < this.poolSize; i++) {
+      const geo = new THREE.SphereGeometry(0.3, 8, 8);
+      const mat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        emissive: 0xffffff,
+        emissiveIntensity: 0.5,
+      });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.castShadow = true;
+      mesh.active = false;
+      this.pool.push(mesh);
+    }
+  }
+
+  burst(color, count, position = new THREE.Vector3(0, 20, 0)) {
+    for (let i = 0; i < count; i++) {
+      const particle = this.pool.pop() || new THREE.Mesh(
+        new THREE.SphereGeometry(0.3, 8, 8),
+        new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.5 })
+      );
+
+      particle.position.copy(position);
+      particle.material.color.setHex(color);
+      particle.material.emissive.setHex(color);
+
+      const angle = (Math.PI * 2 * i) / count;
+      const speed = 3 + Math.random() * 2;
+      particle.velocity = new THREE.Vector3(
+        Math.cos(angle) * speed,
+        2 + Math.random() * 2,
+        Math.sin(angle) * speed
+      );
+      particle.life = 1.5;
+      particle.maxLife = 1.5;
+      particle.active = true;
+
+      this.particles.push(particle);
+      this.scene.add(particle);
+    }
+  }
+
+  update(deltaTime) {
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.life -= deltaTime;
+
+      if (p.life <= 0) {
+        this.scene.remove(p);
+        this.particles.splice(i, 1);
+        this.pool.push(p);
+        continue;
+      }
+
+      p.velocity.y -= 9.8 * deltaTime;
+      p.position.add(p.velocity.clone().multiplyScalar(deltaTime));
+
+      const alpha = p.life / p.maxLife;
+      p.material.opacity = alpha;
+      p.scale.setScalar(alpha);
+    }
   }
 }
