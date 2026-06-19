@@ -898,6 +898,9 @@ export class HospitalRenderer {
     Object.entries(this.game.staffByTier).forEach(([tier, list]) => {
       list.forEach((s) => allStaff.push({ ...s, tier }));
     });
+    if (allStaff.length > 0 && this.staffMeshes.size === 0) {
+      console.log('Staff found:', allStaff.length, 'meshes:', this.staffMeshes.size);
+    }
 
     for (const [id, mesh] of this.staffMeshes) {
       if (!allStaff.find((s) => s.id === id)) {
@@ -935,6 +938,11 @@ export class HospitalRenderer {
     const queueIds = new Set(this.game.patientQueue.map((p) => p.id));
     const checkinIds = new Set(this.game.checkingInPatients.map((p) => p.id));
     const treatingIds = new Set(this.game.activeTreatments.map((t) => t.patient.id));
+
+    const totalPatients = queueIds.size + checkinIds.size + treatingIds.size;
+    if (totalPatients > 0 && this.patientMeshes.size === 0) {
+      console.log('Patients found - Queue:', queueIds.size, 'CheckIn:', checkinIds.size, 'Treating:', treatingIds.size, 'Meshes:', this.patientMeshes.size);
+    }
 
     for (const [id, mesh] of this.patientMeshes) {
       if (!queueIds.has(id) && !checkinIds.has(id) && !treatingIds.has(id)) {
