@@ -12,9 +12,9 @@ export class HospitalRenderer {
     this.updateSceneTheme();
     this.scene.fog = new THREE.Fog(0x87ceeb, 200, 500);
 
-    // Camera - isometric view
-    const width = container.clientWidth;
-    const height = container.clientHeight;
+    // Camera - isometric view (use window dimensions as fallback)
+    const width = container.clientWidth || window.innerWidth;
+    const height = container.clientHeight || window.innerHeight;
     const zoom = 30;
     this.camera = new THREE.OrthographicCamera(
       -width / zoom,
@@ -28,11 +28,17 @@ export class HospitalRenderer {
     this.camera.lookAt(0, 0, 0);
 
     // Renderer
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, precision: 'highp' });
     this.renderer.setSize(width, height);
+    this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowShadowMap;
+    this.renderer.domElement.style.display = 'block';
+    this.renderer.domElement.style.width = '100%';
+    this.renderer.domElement.style.height = '100%';
     container.appendChild(this.renderer.domElement);
+
+    console.log('Hospital Renderer initialized with dimensions:', width, height);
 
     // Lighting
     this.setupLighting();
