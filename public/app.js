@@ -80,6 +80,12 @@ class GameUI {
             </div>
           </div>
 
+          <!-- Room Detail Panel (shown when room is clicked) -->
+          <div class="panel room-detail-panel" id="roomDetailPanel" style="display: none;">
+            <div class="panel-title" id="roomDetailTitle">Room Details</div>
+            <div id="roomDetailContent"></div>
+          </div>
+
           <!-- Notification Container -->
           <div id="notifications" class="notifications"></div>
         </div>
@@ -363,6 +369,58 @@ class GameUI {
         background: rgba(76, 175, 80, 0.15);
         border-color: rgba(76, 175, 80, 0.5);
         color: #81c784;
+      }
+
+      /* Room Detail Panel */
+      .room-detail-panel {
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 420px;
+        max-height: 600px;
+        overflow-y: auto;
+        z-index: 100;
+      }
+
+      .room-detail-section {
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(100, 150, 255, 0.15);
+      }
+
+      .detail-stat {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        margin-bottom: 6px;
+      }
+
+      .detail-label {
+        color: #999;
+      }
+
+      .detail-value {
+        color: #64d9ff;
+        font-weight: bold;
+      }
+
+      .staff-list, .patient-list {
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .staff-item, .patient-item-detail {
+        color: #b0c4de;
+        padding: 4px 0;
+        margin-bottom: 4px;
+      }
+
+      .staff-item::before {
+        content: '👤 ';
+      }
+
+      .patient-item-detail::before {
+        content: '🏥 ';
       }
 
       /* Right Panel: Staff */
@@ -683,8 +741,10 @@ class GameUI {
   selectRoom(idx) {
     if (this.selectedRoomIdx === idx) {
       this.selectedRoomIdx = null;
+      document.getElementById('roomDetailPanel').style.display = 'none';
     } else {
       this.selectedRoomIdx = idx;
+      this.showRoomDetail(idx);
     }
 
     document.querySelectorAll('.room-card').forEach((card, i) => {
@@ -694,6 +754,88 @@ class GameUI {
         card.classList.remove('selected');
       }
     });
+  }
+
+  showRoomDetail(idx) {
+    const room = this.game.rooms[idx];
+    if (!room) return;
+
+    const allStaff = [];
+    Object.entries(this.game.staffByTier).forEach(([tier, list]) => {
+      list.forEach((s) => allStaff.push({ ...s, tier }));
+    });
+
+    const staffInRoom = allStaff.filter((s, i) => (i % 6) === idx);
+    const patientsInRoom = this.game.patientQueue.slice(0, 12).filter((_, i) => Math.floor(i / 4) === 0);
+
+    const detail = document.getElementById('roomDetailPanel');
+    const title = document.getElementById('roomDetailTitle');
+    const content = document.getElementById('roomDetailContent');
+
+    title.textContent = `${room.icon} ${room.name}`;
+
+    let html = `
+      <div class="room-detail-section">
+        <div class="detail-stat">
+          <span class="detail-label">Level</span>
+          <span class="detail-value">${room.level}</span>
+        </div>
+        <div class="detail-stat">
+          <span class="detail-label">Owned</span>
+          <span class="detail-value">${room.owned}</span>
+        </div>
+        <div class="detail-stat">
+          <span class="detail-label">Production</span>
+          <span class="detail-value">${Math.floor(this.game.getRoomProduction(room))}/s</span>
+        </div>
+        <div class="detail-stat">
+          <span class="detail-label">Furniture Bonus</span>
+          <span class="detail-value">×${(this.game.getFurnitureBonus(room)).toFixed(2)}</span>
+        </div>
+      </div>
+
+      <div class="room-detail-section">
+        <div class="panel-title" style="margin-bottom: 8px; font-size: 13px;">⬆️ Upgrades</div>
+        <button class="btn btn-primary" style="padding: 8px; margin-bottom: 6px; width: 100%;" onclick="gameUI.upgradeRoom(${idx})">Upgrade Level ($${Math.floor(this.game.getRoomCost(room) * 0.5)})</button>
+        <button class="btn btn-primary" style="padding: 8px; width: 100%;" onclick="gameUI.buyRoom(${idx})">Buy Another Room ($${Math.floor(this.game.getRoomCost(room))})</button>
+      </div>
+
+      <div class="room-detail-section">
+        <div class="panel-title" style="margin-bottom: 8px; font-size: 13px;">🛠️ Equipment</div>
+        ${this.game.getFurnitureCatalog(idx).map((item) => {
+          const owned = this.game.ownsFurniture(idx, item.id);
+          return `
+            <div style="margin-bottom: 6px;">
+              <div style="font-size: 12px; color: #b0c4de; margin-bottom: 2px;">${item.icon} ${item.name} (+${Math.round(item.bonus * 100)}%)</div>
+              <button class="btn-equip ${owned ? 'owned' : ''}" onclick="gameUI.buyFurniture(${idx}, '${item.id}')" ${owned ? 'disabled' : ''}>
+                ${owned ? 'Owned ✓' : `Buy ($${item.cost})`}
+              </button>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <div class="room-detail-section">
+        <div class="panel-title" style="margin-bottom: 8px; font-size: 13px;">👥 Staff (${staffInRoom.length})</div>
+        <div class="staff-list">
+          ${staffInRoom.length > 0
+            ? staffInRoom.map((s) => `<div class="staff-item">${this.game.staffTiers[s.tier].name} (Efficiency: ${s.efficiency})</div>`).join('')
+            : '<div style="color: #666; font-size: 12px;">No staff assigned</div>'}
+        </div>
+      </div>
+
+      <div class="room-detail-section">
+        <div class="panel-title" style="margin-bottom: 8px; font-size: 13px;">🏥 Patients Waiting</div>
+        <div class="patient-list">
+          ${patientsInRoom.length > 0
+            ? patientsInRoom.map((p) => `<div class="patient-item-detail">${p.name} → +$${p.revenuePerPatient}</div>`).join('')
+            : '<div style="color: #666; font-size: 12px;">No patients in queue</div>'}
+        </div>
+      </div>
+    `;
+
+    content.innerHTML = html;
+    detail.style.display = 'block';
   }
 
   attachEventListeners() {

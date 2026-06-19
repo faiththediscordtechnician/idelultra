@@ -161,6 +161,7 @@ export class HospitalRenderer {
     this.shakeStrength = 0;
 
     this.setupCameraControls();
+    this.setupRoomClicking();
     this.buildHospital();
     this.setupGameEvents();
 
@@ -232,6 +233,48 @@ export class HospitalRenderer {
       this.viewSize = Math.max(28, Math.min(110, this.viewSize));
       this.applyViewSize();
     });
+  }
+
+  setupRoomClicking() {
+    this.raycaster = new THREE.Raycaster();
+    this.mouse = new THREE.Vector2();
+    this.selectedRoomIdx = null;
+
+    this.renderer.domElement.addEventListener('click', (e) => {
+      if (this.isDragging) return;
+      const rect = this.renderer.domElement.getBoundingClientRect();
+      this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+      this.raycaster.setFromCamera(this.mouse, this.camera);
+      const intersects = this.raycaster.intersectObjects(this.scene.children, true);
+
+      let clickedRoomIdx = null;
+      for (const intersection of intersects) {
+        let obj = intersection.object;
+        while (obj && !clickedRoomIdx) {
+          const ref = this.roomMeshes.get(Array.from(this.roomMeshes.values()).findIndex((r) => r.group === obj));
+          if (ref && ref.group === obj) {
+            clickedRoomIdx = Array.from(this.roomMeshes.entries()).find(([, r]) => r === ref)?.[0];
+            break;
+          }
+          obj = obj.parent;
+          if (obj === this.scene) break;
+        }
+        if (clickedRoomIdx !== null) break;
+      }
+
+      if (clickedRoomIdx !== null) {
+        this.selectRoom(clickedRoomIdx);
+        if (window.gameUI) {
+          window.gameUI.selectRoom(clickedRoomIdx);
+        }
+      }
+    });
+  }
+
+  selectRoom(idx) {
+    this.selectedRoomIdx = idx;
   }
 
   applyViewSize() {
