@@ -306,9 +306,12 @@ export class HospitalRenderer {
       }
 
       if (clickedRoomIdx !== null) {
+        console.log('Clicked room:', clickedRoomIdx, 'gameUI exists:', !!window.gameUI);
         if (clickedRoomIdx === 0 && window.gameUI) {
+          console.log('Calling toggleReceptionPanel');
           window.gameUI.toggleReceptionPanel();
-        } else {
+        } else if (clickedRoomIdx !== 0) {
+          console.log('Calling selectRoom on gameUI');
           this.selectRoom(clickedRoomIdx);
           if (window.gameUI) {
             window.gameUI.selectRoom(clickedRoomIdx);
