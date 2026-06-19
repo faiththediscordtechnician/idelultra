@@ -22,11 +22,11 @@ class GameEngine {
 
   initializeHospitals() {
     this.hospitals = [
-      { id: 0, name: 'Community Clinic', incomeMultiplier: 1, cost: 0, unlocked: true },
-      { id: 1, name: 'Regional Hospital', incomeMultiplier: 2.5, cost: 10000, unlocked: false },
-      { id: 2, name: 'Metropolitan Medical Center', incomeMultiplier: 5, cost: 100000, unlocked: false },
-      { id: 3, name: 'Elite Private Hospital', incomeMultiplier: 10, cost: 500000, unlocked: false },
-      { id: 4, name: 'World-Class Medical Complex', incomeMultiplier: 20, cost: 2000000, unlocked: false },
+      { id: 0, name: 'Community Clinic', incomeMultiplier: 1, cost: 0, unlocked: true, prestige: 0 },
+      { id: 1, name: 'Regional Hospital', incomeMultiplier: 2.5, cost: 50000, unlocked: false, prestige: 0 },
+      { id: 2, name: 'Metropolitan Medical Center', incomeMultiplier: 5, cost: 500000, unlocked: false, prestige: 0 },
+      { id: 3, name: 'Elite Private Hospital', incomeMultiplier: 10, cost: 5000000, unlocked: false, prestige: 5 },
+      { id: 4, name: 'World-Class Medical Complex', incomeMultiplier: 20, cost: 50000000, unlocked: false, prestige: 25 },
     ];
   }
 
@@ -36,39 +36,39 @@ class GameEngine {
         id: 0,
         name: 'General Checkup',
         revenuePerPatient: 50,
-        unlockedAt: 0,
+        prestigeRequired: 0,
         unlocked: true,
         icon: '🏥',
       },
       {
         id: 1,
         name: 'Emergency Care',
-        revenuePerPatient: 200,
-        unlockedAt: 500,
+        revenuePerPatient: 250,
+        prestigeRequired: 2,
         unlocked: false,
         icon: '🚑',
       },
       {
         id: 2,
         name: 'Surgery',
-        revenuePerPatient: 500,
-        unlockedAt: 2000,
+        revenuePerPatient: 800,
+        prestigeRequired: 8,
         unlocked: false,
         icon: '🔪',
       },
       {
         id: 3,
         name: 'ICU Care',
-        revenuePerPatient: 1000,
-        unlockedAt: 5000,
+        revenuePerPatient: 1500,
+        prestigeRequired: 15,
         unlocked: false,
         icon: '💊',
       },
       {
         id: 4,
         name: 'Maternity',
-        revenuePerPatient: 750,
-        unlockedAt: 3000,
+        revenuePerPatient: 1200,
+        prestigeRequired: 10,
         unlocked: false,
         icon: '👶',
       },
@@ -81,10 +81,10 @@ class GameEngine {
         id: 0,
         name: 'Reception',
         type: 'reception',
-        baseCost: 100,
-        costMultiplier: 1.15,
-        baseProduction: 5,
-        productionMultiplier: 1.2,
+        baseCost: 50,
+        costMultiplier: 1.12,
+        baseProduction: 3,
+        productionMultiplier: 1.15,
         owned: 1,
         level: 1,
         icon: '🪑',
@@ -93,10 +93,10 @@ class GameEngine {
         id: 1,
         name: 'Examination Room',
         type: 'examination',
-        baseCost: 500,
-        costMultiplier: 1.15,
-        baseProduction: 20,
-        productionMultiplier: 1.2,
+        baseCost: 800,
+        costMultiplier: 1.13,
+        baseProduction: 25,
+        productionMultiplier: 1.18,
         owned: 0,
         level: 1,
         icon: '🔬',
@@ -105,9 +105,9 @@ class GameEngine {
         id: 2,
         name: 'Surgery Suite',
         type: 'surgery',
-        baseCost: 2000,
-        costMultiplier: 1.15,
-        baseProduction: 50,
+        baseCost: 5000,
+        costMultiplier: 1.14,
+        baseProduction: 80,
         productionMultiplier: 1.2,
         owned: 0,
         level: 1,
@@ -117,10 +117,10 @@ class GameEngine {
         id: 3,
         name: 'ICU Ward',
         type: 'icu',
-        baseCost: 5000,
-        costMultiplier: 1.15,
-        baseProduction: 100,
-        productionMultiplier: 1.2,
+        baseCost: 15000,
+        costMultiplier: 1.14,
+        baseProduction: 200,
+        productionMultiplier: 1.22,
         owned: 0,
         level: 1,
         icon: '🏨',
@@ -129,10 +129,10 @@ class GameEngine {
         id: 4,
         name: 'Pharmacy',
         type: 'pharmacy',
-        baseCost: 1000,
-        costMultiplier: 1.15,
-        baseProduction: 30,
-        productionMultiplier: 1.2,
+        baseCost: 2000,
+        costMultiplier: 1.13,
+        baseProduction: 40,
+        productionMultiplier: 1.17,
         owned: 0,
         level: 1,
         icon: '💉',
@@ -141,9 +141,9 @@ class GameEngine {
         id: 5,
         name: 'Lab',
         type: 'lab',
-        baseCost: 3000,
-        costMultiplier: 1.15,
-        baseProduction: 60,
+        baseCost: 8000,
+        costMultiplier: 1.14,
+        baseProduction: 100,
         productionMultiplier: 1.2,
         owned: 0,
         level: 1,
@@ -189,14 +189,22 @@ class GameEngine {
     return false;
   }
 
+  getDoctorCost() {
+    return Math.floor(2000 * Math.pow(1.15, this.doctors.length));
+  }
+
+  getNurseCost() {
+    return Math.floor(500 * Math.pow(1.12, this.nurses.length));
+  }
+
   buyDoctor() {
-    const cost = 1000 + this.doctors.length * 500;
+    const cost = this.getDoctorCost();
     if (this.money >= cost) {
       this.money -= cost;
       this.doctors.push({
         id: this.doctors.length,
         salary: cost * 0.1,
-        efficiency: 1 + this.doctors.length * 0.05,
+        efficiency: 1 + this.totalPrestige * 0.1 + this.doctors.length * 0.05,
       });
       this.updateMoneyPerSecond();
       this.saveGame();
@@ -206,13 +214,13 @@ class GameEngine {
   }
 
   buyNurse() {
-    const cost = 300 + this.nurses.length * 100;
+    const cost = this.getNurseCost();
     if (this.money >= cost) {
       this.money -= cost;
       this.nurses.push({
         id: this.nurses.length,
         salary: cost * 0.15,
-        efficiency: 1 + this.nurses.length * 0.02,
+        efficiency: 1 + this.totalPrestige * 0.05 + this.nurses.length * 0.02,
       });
       this.updateMoneyPerSecond();
       this.saveGame();
@@ -284,10 +292,27 @@ class GameEngine {
   }
 
   checkUnlocks() {
+    let newUnlocks = [];
     this.patientTypes.forEach((pt) => {
-      if (!pt.unlocked && this.totalPrestige >= pt.unlockedAt) {
+      if (!pt.unlocked && this.totalPrestige >= pt.prestigeRequired) {
         pt.unlocked = true;
+        newUnlocks.push(pt);
       }
+    });
+    if (newUnlocks.length > 0) {
+      this.notifyUnlocks(newUnlocks);
+    }
+  }
+
+  notifyUnlocks(items) {
+    if (!this.unlockedNotifications) {
+      this.unlockedNotifications = [];
+    }
+    items.forEach((item) => {
+      this.unlockedNotifications.push({
+        text: `Unlocked: ${item.icon} ${item.name}`,
+        time: Date.now(),
+      });
     });
   }
 

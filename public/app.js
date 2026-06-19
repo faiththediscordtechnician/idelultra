@@ -10,6 +10,7 @@ class GameUI {
   setupUI() {
     const root = document.getElementById('root');
     root.innerHTML = `
+      <div class="notification-container" id="notificationContainer"></div>
       <div class="game-container">
         <div class="header">
           <h1>🏥 Idle Hospital</h1>
@@ -43,14 +44,14 @@ class GameUI {
                     <div class="staff-name">Doctors</div>
                     <div class="staff-count" id="doctorCount">0</div>
                   </div>
-                  <button id="buyDoctorBtn" class="btn btn-primary">Hire Doctor</button>
+                  <button id="buyDoctorBtn" class="btn btn-primary" id="doctorCostBtn">Hire Doctor</button>
                 </div>
                 <div class="staff-item">
                   <div class="staff-info">
                     <div class="staff-name">Nurses</div>
                     <div class="staff-count" id="nurseCount">0</div>
                   </div>
-                  <button id="buyNurseBtn" class="btn btn-primary">Hire Nurse</button>
+                  <button id="buyNurseBtn" class="btn btn-primary" id="nurseCostBtn">Hire Nurse</button>
                 </div>
               </div>
             </div>
@@ -354,6 +355,79 @@ class GameUI {
         margin-bottom: 12px;
       }
 
+      .progress-bar {
+        width: 100%;
+        height: 6px;
+        background: #0f1419;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 4px;
+        border: 1px solid #2d3748;
+      }
+
+      .progress-bar.small {
+        height: 4px;
+        margin-top: 2px;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        transition: width 0.3s ease;
+      }
+
+      .hospital-requirements {
+        font-size: 11px;
+        color: #a0aec0;
+        margin-top: 6px;
+      }
+
+      .hospital-requirements div {
+        margin-bottom: 4px;
+      }
+
+      .notification-container {
+        position: fixed;
+        top: 100px;
+        right: 20px;
+        pointer-events: none;
+        z-index: 1000;
+      }
+
+      .notification {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 12px 16px;
+        border-radius: 6px;
+        margin-bottom: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        animation: slideIn 0.3s ease, slideOut 0.3s ease 2.7s;
+        font-size: 13px;
+        font-weight: 600;
+      }
+
+      @keyframes slideIn {
+        from {
+          transform: translateX(400px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+
+      @keyframes slideOut {
+        from {
+          transform: translateX(0);
+          opacity: 1;
+        }
+        to {
+          transform: translateX(400px);
+          opacity: 0;
+        }
+      }
+
       @media (max-width: 1400px) {
         .header-stats {
           grid-template-columns: repeat(2, 1fr);
@@ -481,15 +555,25 @@ class GameUI {
     const container = document.getElementById('patientTypesContainer');
     container.innerHTML = this.game.patientTypes
       .map(
-        (pt) => `
+        (pt) => {
+          const progress = Math.min(100, (this.game.totalPrestige / pt.prestigeRequired) * 100);
+          return `
       <div class="patient-type-item ${pt.unlocked ? 'unlocked' : 'locked'}">
         <div class="patient-type-info">
           <div class="patient-type-name">${pt.icon} ${pt.name}</div>
           <div class="patient-type-revenue">$${this.formatMoney(pt.revenuePerPatient)} per patient</div>
-          ${!pt.unlocked ? `<div class="patient-type-revenue">Unlock at ${pt.unlockedAt} prestige</div>` : ''}
+          ${!pt.unlocked ? `
+            <div class="patient-type-revenue">
+              Requires ${pt.prestigeRequired} prestige (${this.game.totalPrestige}/${pt.prestigeRequired})
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: ${progress}%"></div>
+            </div>
+          ` : ''}
         </div>
       </div>
-    `
+    `;
+        }
       )
       .join('');
   }
@@ -498,23 +582,43 @@ class GameUI {
     const container = document.getElementById('hospitalsContainer');
     container.innerHTML = this.game.hospitals
       .map(
-        (hospital, index) => `
+        (hospital, index) => {
+          const prestigeProgress = hospital.prestige > 0 ? Math.min(100, (this.game.totalPrestige / hospital.prestige) * 100) : 100;
+          const moneyProgress = Math.min(100, (this.game.money / hospital.cost) * 100);
+          return `
       <div class="hospital-item ${hospital.unlocked ? '' : 'locked'}">
         <div class="patient-type-info">
           <div class="hospital-name">${hospital.name}</div>
           <div class="hospital-bonus">
-            ${hospital.unlocked ? `✓ ${hospital.incomeMultiplier}x income` : `Unlock: $${this.formatMoney(hospital.cost)}`}
+            ${hospital.unlocked
+              ? `✓ ${hospital.incomeMultiplier}x income`
+              : `${hospital.incomeMultiplier}x income`}
           </div>
+          ${!hospital.unlocked ? `
+            <div class="hospital-requirements">
+              ${hospital.prestige > 0 ? `
+                <div>Prestige: ${this.game.totalPrestige}/${hospital.prestige}</div>
+                <div class="progress-bar small">
+                  <div class="progress-fill" style="width: ${prestigeProgress}%"></div>
+                </div>
+              ` : ''}
+              <div>Money: $${this.formatMoney(this.game.money)}/$${this.formatMoney(hospital.cost)}</div>
+              <div class="progress-bar small">
+                <div class="progress-fill" style="width: ${moneyProgress}%"></div>
+              </div>
+            </div>
+          ` : ''}
         </div>
         ${!hospital.unlocked && this.game.currentHospital !== hospital.id
           ? `<button class="btn btn-primary hospital-upgrade-btn" data-hospital-id="${index}"
-            ${this.game.money < hospital.cost ? 'disabled' : ''}>
+            ${this.game.money < hospital.cost || (hospital.prestige > 0 && this.game.totalPrestige < hospital.prestige) ? 'disabled' : ''}>
             Unlock
           </button>`
           : ''}
-        ${this.game.currentHospital === index ? '<div style="color: #48bb78; font-weight: bold;">CURRENT</div>' : ''}
+        ${this.game.currentHospital === index ? '<div style="color: #48bb78; font-weight: bold; font-size: 12px;">✓ ACTIVE</div>' : ''}
       </div>
-    `
+    `;
+        }
       )
       .join('');
 
@@ -533,12 +637,34 @@ class GameUI {
     document.getElementById('doctorCount').textContent = this.game.doctors.length;
     document.getElementById('nurseCount').textContent = this.game.nurses.length;
 
+    const doctorCost = this.game.getDoctorCost();
+    const nurseCost = this.game.getNurseCost();
+
+    const doctorBtn = document.getElementById('buyDoctorBtn');
+    const nurseBtn = document.getElementById('buyNurseBtn');
+
+    doctorBtn.textContent = `Hire Doctor - $${this.formatMoney(doctorCost)}`;
+    nurseBtn.textContent = `Hire Nurse - $${this.formatMoney(nurseCost)}`;
+
+    doctorBtn.disabled = this.game.money < doctorCost;
+    nurseBtn.disabled = this.game.money < nurseCost;
+
     const prestigeGain = Math.floor(Math.sqrt(this.game.money));
     document.getElementById('prestigeBtn').textContent = `Prestige (${prestigeGain} points)`;
     document.getElementById('prestigeInfo').textContent = `Gain ${prestigeGain} prestige based on your wealth and reset to gain bonuses.`;
+  }
 
-    document.getElementById('buyDoctorBtn').disabled = this.game.money < 1000 + this.game.doctors.length * 500;
-    document.getElementById('buyNurseBtn').disabled = this.game.money < 300 + this.game.nurses.length * 100;
+  renderNotifications() {
+    const container = document.getElementById('notificationContainer');
+    if (this.game.unlockedNotifications && this.game.unlockedNotifications.length > 0) {
+      const now = Date.now();
+      const activeNotifications = this.game.unlockedNotifications.filter((n) => now - n.time < 3000);
+      this.game.unlockedNotifications = activeNotifications;
+
+      container.innerHTML = activeNotifications
+        .map((n) => `<div class="notification">${n.text}</div>`)
+        .join('');
+    }
   }
 
   renderLoop() {
@@ -546,6 +672,7 @@ class GameUI {
     this.renderRooms();
     this.renderPatientTypes();
     this.renderHospitals();
+    this.renderNotifications();
     requestAnimationFrame(() => this.renderLoop());
   }
 }
