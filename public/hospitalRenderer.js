@@ -242,7 +242,8 @@ export class HospitalRenderer {
       canvas.width = 256;
       canvas.height = 128;
       const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#' + room.color.toString(16).padStart(6, '0');
+      const colorHex = (room.color || 0x4CAF50).toString(16).padStart(6, '0');
+      ctx.fillStyle = '#' + colorHex;
       ctx.fillRect(0, 0, 256, 128);
       ctx.fillStyle = '#fff';
       ctx.font = 'bold 32px Arial';

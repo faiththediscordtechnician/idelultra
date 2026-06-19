@@ -373,7 +373,15 @@ class GameEngine {
       this.currentHospital = data.currentHospital || 0;
       this.totalPrestige = data.totalPrestige || 0;
       this.staffByTier = data.staffByTier || this.staffByTier;
-      this.rooms = data.rooms || this.rooms;
+
+      // Merge loaded rooms with roomTypes to restore color properties
+      if (data.rooms) {
+        this.rooms = data.rooms.map((loadedRoom, idx) => ({
+          ...this.roomTypes[idx],
+          ...loadedRoom
+        }));
+      }
+
       this.patientTypes = data.patientTypes || this.patientTypes;
       this.hospitals = data.hospitals || this.hospitals;
       this.missions = data.missions || this.missions;
