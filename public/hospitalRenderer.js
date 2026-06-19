@@ -282,6 +282,7 @@ export class HospitalRenderer {
     this.selectedRoomIdx = null;
 
     this.renderer.domElement.addEventListener('click', (e) => {
+      console.log('Canvas clicked!');
       const rect = this.renderer.domElement.getBoundingClientRect();
       this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
