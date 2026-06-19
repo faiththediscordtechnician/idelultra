@@ -259,8 +259,14 @@ export class HospitalRenderer {
       this.cameraTarget.z = Math.max(-90, Math.min(60, this.cameraTarget.z));
     });
 
-    this.renderer.domElement.addEventListener('mouseup', () => { this.isDragging = false; });
-    this.renderer.domElement.addEventListener('mouseleave', () => { this.isDragging = false; });
+    this.renderer.domElement.addEventListener('mouseup', () => {
+      this.isDragging = false;
+      this.dragDistance = 0;
+    });
+    this.renderer.domElement.addEventListener('mouseleave', () => {
+      this.isDragging = false;
+      this.dragDistance = 0;
+    });
 
     this.renderer.domElement.addEventListener('wheel', (e) => {
       e.preventDefault();
