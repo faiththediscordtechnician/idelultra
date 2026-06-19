@@ -282,40 +282,29 @@ export class HospitalRenderer {
     this.selectedRoomIdx = null;
 
     this.renderer.domElement.addEventListener('click', (e) => {
-      // For now, don't block clicks based on dragDistance - debug mode
       const rect = this.renderer.domElement.getBoundingClientRect();
       this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
       this.raycaster.setFromCamera(this.mouse, this.camera);
       const intersects = this.raycaster.intersectObjects(this.scene.children, true);
-      console.log('Click: found', intersects.length, 'intersections');
 
       let clickedRoomIdx = null;
-
-      // Try to find a room by checking each intersection
       for (const intersection of intersects) {
         let obj = intersection.object;
-        let depth = 0;
-
-        // Walk up the parent chain looking for a room group
-        while (obj && depth < 20) {
-          // Check if this object is a room group by checking roomMeshes
+        while (obj) {
           for (const [idx, room] of this.roomMeshes) {
             if (room.group === obj) {
               clickedRoomIdx = idx;
-              console.log('Found room at depth', depth, ':', idx);
               break;
             }
           }
           if (clickedRoomIdx !== null) break;
           obj = obj.parent;
-          depth++;
         }
         if (clickedRoomIdx !== null) break;
       }
 
-      console.log('Final clickedRoomIdx:', clickedRoomIdx);
       if (clickedRoomIdx !== null) {
         if (clickedRoomIdx === 0 && window.gameUI) {
           window.gameUI.toggleReceptionPanel();
