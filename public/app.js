@@ -502,7 +502,10 @@ class GameUI {
 
       /* Patient Panel */
       .patient-panel {
-        display: none;
+        left: 16px;
+        bottom: 16px;
+        width: 300px;
+        max-height: 250px;
       }
 
       .patient-list {
