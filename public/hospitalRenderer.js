@@ -282,7 +282,7 @@ export class HospitalRenderer {
     this.selectedRoomIdx = null;
 
     this.renderer.domElement.addEventListener('click', (e) => {
-      if (this.dragDistance > 10) return;
+      //if (this.dragDistance > 10) return;
 
       const rect = this.renderer.domElement.getBoundingClientRect();
       this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
