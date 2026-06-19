@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Idle Hospital - Ultimate Hospital Management Game</title>
+    <title>🏥 Idle Hospital Empire</title>
     <style>
         * {
             margin: 0;
@@ -11,23 +11,33 @@
             box-sizing: border-box;
         }
 
-        body {
+        html, body {
+            width: 100%;
+            height: 100%;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
+            background: #0a0e17;
             overflow: hidden;
         }
 
         #root {
             width: 100%;
-            height: 100vh;
+            height: 100%;
+        }
+
+        canvas {
+            display: block;
         }
     </style>
 </head>
 <body>
     <div id="root"></div>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@r128/build/three.module.js"
+      }
+    }
+    </script>
     <script src="app.js" type="module"></script>
 </body>
 </html>

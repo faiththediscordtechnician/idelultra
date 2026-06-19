@@ -1,24 +1,45 @@
-// Game state and logic
+// Idle Hospital Empire - Enhanced Game Engine
 class GameEngine {
   constructor() {
     this.money = 0;
+    this.reputation = 0;
     this.moneyPerSecond = 0;
     this.currentHospital = 0;
     this.totalPrestige = 0;
-    this.gameVersion = 1;
 
-    this.doctors = [];
-    this.nurses = [];
+    // Staff system with tiers
+    this.staffByTier = {
+      intern: [],
+      resident: [],
+      attending: [],
+      specialist: [],
+    };
+
+    // Staff tier definitions
+    this.staffTiers = {
+      intern: { name: 'Intern', salary: 50, efficiency: 1, costMultiplier: 1.1, reputationCost: 0 },
+      resident: { name: 'Resident', salary: 150, efficiency: 2.5, costMultiplier: 1.15, reputationCost: 10 },
+      attending: { name: 'Attending', salary: 400, efficiency: 6, costMultiplier: 1.2, reputationCost: 50 },
+      specialist: { name: 'Specialist', salary: 1000, efficiency: 15, costMultiplier: 1.25, reputationCost: 200 },
+    };
+
     this.rooms = [];
     this.patientTypes = [];
     this.hospitals = [];
+    this.patientQueue = [];
+    this.missions = [];
+    this.events = [];
+    this.synergies = {};
 
     this.initializeHospitals();
     this.initializePatientTypes();
     this.initializeRooms();
+    this.initializeMissions();
     this.loadGame();
     this.startGameLoop();
   }
+
+  // ============ INITIALIZATION ============
 
   initializeHospitals() {
     this.hospitals = [
@@ -36,41 +57,51 @@ class GameEngine {
         id: 0,
         name: 'General Checkup',
         revenuePerPatient: 50,
+        reputationReward: 1,
         prestigeRequired: 0,
         unlocked: true,
         icon: '🏥',
+        weight: 0.4,
       },
       {
         id: 1,
         name: 'Emergency Care',
         revenuePerPatient: 250,
+        reputationReward: 5,
         prestigeRequired: 2,
         unlocked: false,
         icon: '🚑',
+        weight: 0.2,
       },
       {
         id: 2,
         name: 'Surgery',
         revenuePerPatient: 800,
+        reputationReward: 20,
         prestigeRequired: 8,
         unlocked: false,
         icon: '🔪',
+        weight: 0.15,
       },
       {
         id: 3,
         name: 'ICU Care',
         revenuePerPatient: 1500,
+        reputationReward: 30,
         prestigeRequired: 15,
         unlocked: false,
         icon: '💊',
+        weight: 0.1,
       },
       {
         id: 4,
         name: 'Maternity',
         revenuePerPatient: 1200,
+        reputationReward: 25,
         prestigeRequired: 10,
         unlocked: false,
         icon: '👶',
+        weight: 0.15,
       },
     ];
   }
@@ -88,6 +119,7 @@ class GameEngine {
         owned: 1,
         level: 1,
         icon: '🪑',
+        staffCapacity: 5,
       },
       {
         id: 1,
@@ -100,6 +132,7 @@ class GameEngine {
         owned: 0,
         level: 1,
         icon: '🔬',
+        staffCapacity: 3,
       },
       {
         id: 2,
@@ -112,6 +145,7 @@ class GameEngine {
         owned: 0,
         level: 1,
         icon: '⚕️',
+        staffCapacity: 4,
       },
       {
         id: 3,
@@ -124,6 +158,7 @@ class GameEngine {
         owned: 0,
         level: 1,
         icon: '🏨',
+        staffCapacity: 6,
       },
       {
         id: 4,
@@ -136,6 +171,7 @@ class GameEngine {
         owned: 0,
         level: 1,
         icon: '💉',
+        staffCapacity: 2,
       },
       {
         id: 5,
@@ -148,9 +184,98 @@ class GameEngine {
         owned: 0,
         level: 1,
         icon: '🧪',
+        staffCapacity: 3,
       },
     ];
   }
+
+  initializeMissions() {
+    this.missions = [
+      { id: 0, name: 'First Patient', desc: 'Serve 1 patient', target: 1, current: 0, reward: 100, reputationReward: 5, completed: false },
+      { id: 1, name: 'Busy Day', desc: 'Serve 10 patients', target: 10, current: 0, reward: 500, reputationReward: 20, completed: false },
+      { id: 2, name: 'Popular Doc', desc: 'Hire 5 staff members', target: 5, current: 0, reward: 1000, reputationReward: 50, completed: false },
+      { id: 3, name: 'Surgeon', desc: 'Hire 1 Specialist', target: 1, current: 0, reward: 2000, reputationReward: 100, completed: false },
+    ];
+  }
+
+  // ============ STAFF HIRING & MANAGEMENT ============
+
+  getStaffCost(tier) {
+    const tierData = this.staffTiers[tier];
+    const count = this.staffByTier[tier].length;
+    return Math.floor(1000 * Math.pow(tierData.costMultiplier, count));
+  }
+
+  canHireStaff(tier) {
+    const tierData = this.staffTiers[tier];
+    const cost = this.getStaffCost(tier);
+    return this.money >= cost && (tier === 'intern' || this.reputation >= tierData.reputationCost);
+  }
+
+  hireStaff(tier) {
+    if (!this.canHireStaff(tier)) return false;
+
+    const cost = this.getStaffCost(tier);
+    const tierData = this.staffTiers[tier];
+    this.money -= cost;
+    this.reputation -= tierData.reputationCost;
+
+    this.staffByTier[tier].push({
+      id: Math.random(),
+      tier,
+      efficiency: tierData.efficiency,
+    });
+
+    this.updateMission('Hire 5 staff members');
+    if (tier === 'specialist') this.updateMission('Hire 1 Specialist');
+
+    this.updateMoneyPerSecond();
+    this.saveGame();
+    return true;
+  }
+
+  getTotalStaff() {
+    return Object.values(this.staffByTier).reduce((sum, arr) => sum + arr.length, 0);
+  }
+
+  // ============ PATIENT & CLICKING SYSTEM ============
+
+  generatePatient() {
+    const unlockedTypes = this.patientTypes.filter((p) => p.unlocked);
+    if (unlockedTypes.length === 0) return null;
+
+    const totalWeight = unlockedTypes.reduce((sum, p) => sum + p.weight, 0);
+    let random = Math.random() * totalWeight;
+
+    for (const patient of unlockedTypes) {
+      random -= patient.weight;
+      if (random <= 0) return { ...patient, id: Math.random() };
+    }
+    return unlockedTypes[0];
+  }
+
+  addPatientToQueue() {
+    const patient = this.generatePatient();
+    if (patient) {
+      this.patientQueue.push(patient);
+    }
+  }
+
+  servePatient() {
+    if (this.patientQueue.length === 0) return null;
+
+    const patient = this.patientQueue.shift();
+    this.money += patient.revenuePerPatient;
+    this.reputation += patient.reputationReward;
+
+    this.updateMission('Serve 1 patient');
+    this.updateMission('Serve 10 patients');
+
+    this.saveGame();
+    return patient;
+  }
+
+  // ============ ROOM & PRODUCTION ============
 
   getRoomCost(room) {
     return Math.floor(room.baseCost * Math.pow(room.costMultiplier, room.owned));
@@ -189,45 +314,23 @@ class GameEngine {
     return false;
   }
 
-  getDoctorCost() {
-    return Math.floor(2000 * Math.pow(1.15, this.doctors.length));
-  }
+  // ============ STAFF SYNERGIES ============
 
-  getNurseCost() {
-    return Math.floor(500 * Math.pow(1.12, this.nurses.length));
-  }
+  calculateSynergies() {
+    const surgeonCount = this.staffByTier.specialist.filter((s) => s.tier === 'specialist').length;
+    let synergyBonus = 1;
 
-  buyDoctor() {
-    const cost = this.getDoctorCost();
-    if (this.money >= cost) {
-      this.money -= cost;
-      this.doctors.push({
-        id: this.doctors.length,
-        salary: cost * 0.1,
-        efficiency: 1 + this.totalPrestige * 0.1 + this.doctors.length * 0.05,
-      });
-      this.updateMoneyPerSecond();
-      this.saveGame();
-      return true;
+    if (surgeonCount >= 3) {
+      synergyBonus *= 2; // 3+ specialists = 2x bonus
     }
-    return false;
+    if (surgeonCount >= 5) {
+      synergyBonus *= 1.5; // 5+ specialists = 3x total
+    }
+
+    return synergyBonus;
   }
 
-  buyNurse() {
-    const cost = this.getNurseCost();
-    if (this.money >= cost) {
-      this.money -= cost;
-      this.nurses.push({
-        id: this.nurses.length,
-        salary: cost * 0.15,
-        efficiency: 1 + this.totalPrestige * 0.05 + this.nurses.length * 0.02,
-      });
-      this.updateMoneyPerSecond();
-      this.saveGame();
-      return true;
-    }
-    return false;
-  }
+  // ============ PRODUCTION ============
 
   getPrestigeMultiplier() {
     return 1 + this.totalPrestige * 0.15;
@@ -236,22 +339,23 @@ class GameEngine {
   updateMoneyPerSecond() {
     let mps = 0;
 
-    // Add production from rooms
+    // Room production
     this.rooms.forEach((room) => {
       if (room.owned > 0) {
         mps += this.getRoomProduction(room) * room.owned;
       }
     });
 
-    // Add production from doctors
-    this.doctors.forEach((doctor) => {
-      mps += 10 * doctor.efficiency;
+    // Staff production
+    Object.entries(this.staffByTier).forEach(([tier, staff]) => {
+      const tierData = this.staffTiers[tier];
+      staff.forEach((member) => {
+        mps += tierData.efficiency;
+      });
     });
 
-    // Add production from nurses
-    this.nurses.forEach((nurse) => {
-      mps += 3 * nurse.efficiency;
-    });
+    // Apply synergy bonus
+    mps *= this.calculateSynergies();
 
     // Apply prestige multiplier
     mps *= this.getPrestigeMultiplier();
@@ -277,6 +381,22 @@ class GameEngine {
     return true;
   }
 
+  // ============ MISSIONS ============
+
+  updateMission(missionName) {
+    const mission = this.missions.find((m) => m.name === missionName);
+    if (mission && !mission.completed) {
+      mission.current += 1;
+      if (mission.current >= mission.target) {
+        mission.completed = true;
+        this.money += mission.reward;
+        this.reputation += mission.reputationReward;
+      }
+    }
+  }
+
+  // ============ PRESTIGE ============
+
   getPrestigeGain() {
     return Math.floor(Math.sqrt(this.money / 1000));
   }
@@ -287,9 +407,13 @@ class GameEngine {
 
     this.totalPrestige += basePrestige;
     this.money = 0;
+    this.reputation = 0;
     this.moneyPerSecond = 0;
-    this.doctors = [];
-    this.nurses = [];
+
+    // Reset staff
+    this.staffByTier = { intern: [], resident: [], attending: [], specialist: [] };
+
+    // Reset rooms except reception
     this.currentHospital = 0;
     this.rooms.forEach((room) => {
       if (room.name !== 'Reception') {
@@ -299,54 +423,62 @@ class GameEngine {
         room.level = 1;
       }
     });
+
+    // Reset patient queue
+    this.patientQueue = [];
+
     this.updateMoneyPerSecond();
+    this.checkUnlocks();
     this.saveGame();
     return basePrestige;
   }
 
+  // ============ UNLOCKS ============
+
   checkUnlocks() {
-    let newUnlocks = [];
     this.patientTypes.forEach((pt) => {
       if (!pt.unlocked && this.totalPrestige >= pt.prestigeRequired) {
         pt.unlocked = true;
-        newUnlocks.push(pt);
+        if (!this.unlockedNotifications) this.unlockedNotifications = [];
+        this.unlockedNotifications.push({
+          text: `Unlocked: ${pt.icon} ${pt.name}`,
+          time: Date.now(),
+        });
       }
     });
-    if (newUnlocks.length > 0) {
-      this.notifyUnlocks(newUnlocks);
-    }
   }
 
-  notifyUnlocks(items) {
-    if (!this.unlockedNotifications) {
-      this.unlockedNotifications = [];
-    }
-    items.forEach((item) => {
-      this.unlockedNotifications.push({
-        text: `Unlocked: ${item.icon} ${item.name}`,
-        time: Date.now(),
-      });
-    });
-  }
+  // ============ GAME LOOP ============
 
   startGameLoop() {
+    // Passive income tick
     setInterval(() => {
       this.money += this.moneyPerSecond / 10;
       this.checkUnlocks();
+
+      // Occasionally add patients to queue
+      if (Math.random() < 0.3) {
+        this.addPatientToQueue();
+      }
+
       this.saveGame();
     }, 100);
   }
 
+  // ============ SAVE/LOAD ============
+
   saveGame() {
     const saveData = {
       money: this.money,
+      reputation: this.reputation,
       currentHospital: this.currentHospital,
       totalPrestige: this.totalPrestige,
-      doctors: this.doctors,
-      nurses: this.nurses,
+      staffByTier: this.staffByTier,
       rooms: this.rooms,
       patientTypes: this.patientTypes,
       hospitals: this.hospitals,
+      missions: this.missions,
+      patientQueue: this.patientQueue,
     };
     localStorage.setItem('hospitalGameSave', JSON.stringify(saveData));
   }
@@ -356,13 +488,15 @@ class GameEngine {
     if (saveData) {
       const data = JSON.parse(saveData);
       this.money = data.money || 0;
+      this.reputation = data.reputation || 0;
       this.currentHospital = data.currentHospital || 0;
       this.totalPrestige = data.totalPrestige || 0;
-      this.doctors = data.doctors || [];
-      this.nurses = data.nurses || [];
+      this.staffByTier = data.staffByTier || this.staffByTier;
       this.rooms = data.rooms || this.rooms;
       this.patientTypes = data.patientTypes || this.patientTypes;
       this.hospitals = data.hospitals || this.hospitals;
+      this.missions = data.missions || this.missions;
+      this.patientQueue = data.patientQueue || [];
       this.updateMoneyPerSecond();
     }
   }

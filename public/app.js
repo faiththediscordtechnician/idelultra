@@ -1,389 +1,424 @@
 import GameEngine from './gameEngine.js';
+import { HospitalRenderer } from './hospitalRenderer.js';
 
 class GameUI {
   constructor() {
     this.game = new GameEngine();
+    this.setupContainer();
+    this.renderer = new HospitalRenderer(
+      document.getElementById('hospital-canvas'),
+      this.game
+    );
     this.setupUI();
+    this.attachEventListeners();
     this.renderLoop();
   }
 
-  setupUI() {
+  setupContainer() {
     const root = document.getElementById('root');
     root.innerHTML = `
-      <div class="notification-container" id="notificationContainer"></div>
-      <div class="game-container">
-        <div class="header">
-          <h1>🏥 Idle Hospital</h1>
-          <div class="header-stats">
-            <div class="stat">
-              <div class="stat-label">Money</div>
+      <div class="game-layout">
+        <div id="hospital-canvas" class="hospital-view"></div>
+
+        <div class="hud-overlay">
+          <!-- Top Left: Stats -->
+          <div class="hud-panel top-left">
+            <div class="stat-group">
+              <div class="stat-label">💰 Money</div>
               <div class="stat-value" id="money">$0</div>
             </div>
-            <div class="stat">
-              <div class="stat-label">Per Second</div>
-              <div class="stat-value" id="mps">$0/s</div>
+            <div class="stat-group">
+              <div class="stat-label">⭐ Reputation</div>
+              <div class="stat-value" id="reputation">0</div>
             </div>
-            <div class="stat">
-              <div class="stat-label">Prestige</div>
-              <div class="stat-value" id="prestige">0</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">Hospital</div>
-              <div class="stat-value" id="hospital">Community Clinic</div>
+            <div class="stat-group">
+              <div class="stat-label">📊 /sec</div>
+              <div class="stat-value" id="mps">$0</div>
             </div>
           </div>
-        </div>
 
-        <div class="main-content">
-          <div class="left-panel">
-            <div class="section">
-              <h2>👥 Staff</h2>
-              <div class="staff-section">
-                <div class="staff-item">
-                  <div class="staff-info">
-                    <div class="staff-name">Doctors</div>
-                    <div class="staff-count" id="doctorCount">0</div>
-                  </div>
-                  <button id="buyDoctorBtn" class="btn btn-primary" id="doctorCostBtn">Hire Doctor</button>
-                </div>
-                <div class="staff-item">
-                  <div class="staff-info">
-                    <div class="staff-name">Nurses</div>
-                    <div class="staff-count" id="nurseCount">0</div>
-                  </div>
-                  <button id="buyNurseBtn" class="btn btn-primary" id="nurseCostBtn">Hire Nurse</button>
-                </div>
+          <!-- Top Right: Hospital Info -->
+          <div class="hud-panel top-right">
+            <div class="hospital-info">
+              <h3 id="hospital-name">Community Clinic</h3>
+              <div class="hospital-status">
+                <span class="badge">Prestige: <strong id="prestige">0</strong></span>
               </div>
             </div>
+          </div>
 
-            <div class="section">
-              <h2>🏢 Rooms & Infrastructure</h2>
-              <div id="roomsContainer" class="rooms-grid"></div>
+          <!-- Bottom Left: Patient Queue -->
+          <div class="hud-panel bottom-left">
+            <h3>👥 Patient Queue</h3>
+            <div class="patient-queue" id="patientQueue">
+              <div class="empty">No patients</div>
+            </div>
+            <button id="servePatientBtn" class="btn btn-primary">
+              Serve Patient
+            </button>
+          </div>
+
+          <!-- Bottom Right: Quick Actions -->
+          <div class="hud-panel bottom-right">
+            <div class="action-tabs">
+              <button class="tab-btn active" data-tab="staff">👥 Staff</button>
+              <button class="tab-btn" data-tab="missions">📋 Missions</button>
+              <button class="tab-btn" data-tab="prestige">✨ Prestige</button>
+            </div>
+            <div class="tab-content" id="staffTab">
+              <!-- Staff panel content -->
+            </div>
+            <div class="tab-content hidden" id="missionsTab">
+              <!-- Missions panel content -->
+            </div>
+            <div class="tab-content hidden" id="prestigeTab">
+              <!-- Prestige panel content -->
             </div>
           </div>
 
-          <div class="right-panel">
-            <div class="section">
-              <h2>🌟 Patient Types</h2>
-              <div id="patientTypesContainer" class="patient-types-list"></div>
-            </div>
-
-            <div class="section">
-              <h2>🏛️ Hospital Upgrades</h2>
-              <div id="hospitalsContainer" class="hospitals-list"></div>
-            </div>
-
-            <div class="section prestige-section">
-              <h2>✨ Prestige</h2>
-              <p id="prestigeInfo">Gain prestige based on your wealth and reset to gain bonuses.</p>
-              <button id="prestigeBtn" class="btn btn-prestige">Prestige (0 points)</button>
-            </div>
+          <!-- Center Bottom: Controls Info -->
+          <div class="hud-center-bottom">
+            <span class="tip">🖱️ Drag to move camera | Click rooms to interact</span>
           </div>
         </div>
+
+        <!-- Notifications -->
+        <div id="notificationContainer" class="notification-container"></div>
       </div>
     `;
 
     this.addStyles();
-    this.attachEventListeners();
   }
 
   addStyles() {
     const style = document.createElement('style');
     style.textContent = `
-      .game-container {
-        display: flex;
-        flex-direction: column;
-        height: 100vh;
-        background: #0f1419;
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: #0a0e17;
         color: #e0e6ed;
-        font-size: 14px;
         overflow: hidden;
       }
 
-      .header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 20px;
-        border-bottom: 2px solid #764ba2;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+      .game-layout {
+        width: 100vw;
+        height: 100vh;
+        position: relative;
+        overflow: hidden;
       }
 
-      .header h1 {
-        margin: 0 0 15px 0;
-        font-size: 32px;
-        color: white;
+      .hospital-view {
+        width: 100%;
+        height: 100%;
+        position: absolute;
+        top: 0;
+        left: 0;
       }
 
-      .header-stats {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 20px;
+      .hud-overlay {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        pointer-events: none;
       }
 
-      .stat {
-        background: rgba(255, 255, 255, 0.1);
-        padding: 12px;
+      .hud-overlay > * {
+        pointer-events: auto;
+      }
+
+      .hud-panel {
+        position: absolute;
+        background: rgba(26, 31, 46, 0.95);
+        border: 1px solid #667eea;
         border-radius: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 16px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+      }
+
+      .hud-panel h3 {
+        margin: 0 0 12px 0;
+        font-size: 14px;
+        color: #667eea;
+        text-transform: uppercase;
+      }
+
+      .top-left {
+        top: 20px;
+        left: 20px;
+        min-width: 200px;
+      }
+
+      .top-right {
+        top: 20px;
+        right: 20px;
+        min-width: 250px;
+      }
+
+      .bottom-left {
+        bottom: 100px;
+        left: 20px;
+        width: 280px;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+
+      .bottom-right {
+        bottom: 20px;
+        right: 20px;
+        width: 320px;
+        max-height: 400px;
+        overflow-y: auto;
+      }
+
+      .hud-center-bottom {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(102, 126, 234, 0.2);
+        border: 1px solid #667eea;
+        border-radius: 20px;
+        padding: 8px 16px;
+        font-size: 12px;
+        color: #a0aec0;
+      }
+
+      .stat-group {
+        margin-bottom: 12px;
       }
 
       .stat-label {
-        font-size: 12px;
-        color: rgba(255, 255, 255, 0.7);
+        font-size: 11px;
+        color: #a0aec0;
         text-transform: uppercase;
-        margin-bottom: 5px;
+        margin-bottom: 4px;
       }
 
       .stat-value {
         font-size: 18px;
         font-weight: bold;
-        color: white;
+        color: #4caf50;
       }
 
-      .main-content {
-        display: flex;
-        flex: 1;
-        gap: 20px;
-        padding: 20px;
-        overflow: hidden;
+      .hospital-info {
+        text-align: right;
       }
 
-      .left-panel, .right-panel {
-        flex: 1;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-      }
-
-      .section {
-        background: #1a1f26;
-        border-radius: 12px;
-        padding: 20px;
-        border: 1px solid #2d3748;
-      }
-
-      .section h2 {
-        margin: 0 0 15px 0;
-        font-size: 18px;
+      .hospital-info h3 {
+        text-align: right;
         color: #667eea;
-        border-bottom: 2px solid #667eea;
-        padding-bottom: 10px;
       }
 
-      .staff-section {
-        display: flex;
-        flex-direction: column;
-        gap: 15px;
+      .badge {
+        display: inline-block;
+        background: rgba(102, 126, 234, 0.2);
+        border: 1px solid #667eea;
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 11px;
+        margin-top: 4px;
       }
 
-      .staff-item {
+      .patient-queue {
+        background: #0a0e17;
+        border-radius: 6px;
+        padding: 8px;
+        margin-bottom: 8px;
+        max-height: 150px;
+        overflow-y: auto;
+      }
+
+      .patient-item {
+        background: #2d3748;
+        padding: 6px 8px;
+        border-radius: 4px;
+        margin-bottom: 6px;
+        font-size: 12px;
         display: flex;
         justify-content: space-between;
-        align-items: center;
-        background: #0f1419;
-        padding: 12px;
-        border-radius: 8px;
-        border: 1px solid #2d3748;
       }
 
-      .staff-info {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-      }
-
-      .staff-name {
+      .patient-reward {
+        color: #4caf50;
         font-weight: bold;
-        font-size: 14px;
       }
 
-      .staff-count {
-        font-size: 20px;
-        font-weight: bold;
-        color: #667eea;
+      .empty {
+        color: #a0aec0;
+        text-align: center;
+        padding: 20px 0;
+        font-size: 12px;
       }
 
       .btn {
-        padding: 10px 16px;
+        width: 100%;
+        padding: 10px 12px;
         border: none;
         border-radius: 6px;
         cursor: pointer;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 600;
         transition: all 0.2s ease;
-        white-space: nowrap;
-      }
-
-      .btn-primary {
         background: #667eea;
         color: white;
       }
 
-      .btn-primary:hover:not(:disabled) {
+      .btn:hover:not(:disabled) {
         background: #5568d3;
         transform: translateY(-1px);
         box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
       }
 
-      .btn-primary:disabled {
+      .btn:disabled {
         background: #4a5c99;
         opacity: 0.5;
         cursor: not-allowed;
       }
 
-      .btn-secondary {
-        background: #2d3748;
-        color: #e0e6ed;
+      .btn-primary {
+        background: #4caf50;
       }
 
-      .btn-secondary:hover:not(:disabled) {
-        background: #3d4758;
+      .btn-primary:hover:not(:disabled) {
+        background: #45a049;
       }
 
-      .btn-prestige {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        color: white;
-        width: 100%;
-        padding: 12px;
-        font-size: 14px;
-      }
-
-      .btn-prestige:hover:not(:disabled) {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(245, 87, 108, 0.4);
-      }
-
-      .rooms-grid {
+      .action-tabs {
         display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
-      }
-
-      .room-card {
-        background: #0f1419;
-        border: 1px solid #2d3748;
-        border-radius: 8px;
-        padding: 12px;
-        transition: all 0.2s ease;
-      }
-
-      .room-card:hover {
-        border-color: #667eea;
-        background: #151a22;
-      }
-
-      .room-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 8px;
-      }
-
-      .room-name {
-        font-weight: bold;
-        font-size: 13px;
-      }
-
-      .room-icon {
-        font-size: 18px;
-      }
-
-      .room-stats {
-        font-size: 12px;
-        color: #a0aec0;
-        margin-bottom: 8px;
-        line-height: 1.5;
-      }
-
-      .room-buttons {
-        display: flex;
+        grid-template-columns: 1fr 1fr 1fr;
         gap: 6px;
-      }
-
-      .room-buttons .btn {
-        flex: 1;
-        padding: 6px;
-        font-size: 11px;
-      }
-
-      .patient-types-list, .hospitals-list {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-      }
-
-      .patient-type-item, .hospital-item {
-        background: #0f1419;
-        border: 1px solid #2d3748;
-        border-radius: 8px;
-        padding: 12px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-
-      .patient-type-item.locked, .hospital-item.locked {
-        opacity: 0.5;
-        border-color: #4a5c99;
-      }
-
-      .patient-type-item.unlocked {
-        border-left: 3px solid #48bb78;
-      }
-
-      .patient-type-info {
-        flex: 1;
-      }
-
-      .patient-type-name, .hospital-name {
-        font-weight: bold;
-        margin-bottom: 4px;
-      }
-
-      .patient-type-revenue, .hospital-bonus {
-        font-size: 12px;
-        color: #a0aec0;
-      }
-
-      .prestige-section {
-        margin-top: auto;
-      }
-
-      .prestige-section p {
-        font-size: 12px;
-        color: #a0aec0;
         margin-bottom: 12px;
       }
 
-      .progress-bar {
+      .tab-btn {
+        padding: 6px 8px;
+        background: #2d3748;
+        border: 1px solid #667eea;
+        border-radius: 4px;
+        color: #a0aec0;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+      }
+
+      .tab-btn.active {
+        background: #667eea;
+        color: white;
+      }
+
+      .tab-btn:hover {
+        background: #3d4758;
+      }
+
+      .tab-content {
+        display: block;
+        background: #0a0e17;
+        border-radius: 6px;
+        padding: 8px;
+        font-size: 12px;
+      }
+
+      .tab-content.hidden {
+        display: none;
+      }
+
+      .staff-card {
+        background: #2d3748;
+        border-left: 3px solid #667eea;
+        padding: 8px;
+        margin-bottom: 6px;
+        border-radius: 4px;
+      }
+
+      .staff-card.intern {
+        border-left-color: #90caf9;
+      }
+
+      .staff-card.resident {
+        border-left-color: #81c784;
+      }
+
+      .staff-card.attending {
+        border-left-color: #ffb74d;
+      }
+
+      .staff-card.specialist {
+        border-left-color: #f06292;
+      }
+
+      .staff-card-name {
+        font-weight: bold;
+        margin-bottom: 2px;
+      }
+
+      .staff-card-info {
+        font-size: 11px;
+        color: #a0aec0;
+      }
+
+      .staff-hire-btn {
         width: 100%;
-        height: 6px;
-        background: #0f1419;
-        border-radius: 3px;
-        overflow: hidden;
-        margin-top: 4px;
-        border: 1px solid #2d3748;
+        padding: 6px;
+        margin-top: 6px;
+        font-size: 11px;
       }
 
-      .progress-bar.small {
+      .mission-item {
+        background: #2d3748;
+        border-left: 3px solid #667eea;
+        padding: 8px;
+        margin-bottom: 6px;
+        border-radius: 4px;
+      }
+
+      .mission-item.completed {
+        border-left-color: #4caf50;
+        background: rgba(76, 175, 80, 0.1);
+      }
+
+      .mission-name {
+        font-weight: bold;
+        margin-bottom: 4px;
+        font-size: 12px;
+      }
+
+      .mission-progress {
+        background: #1a1f2e;
         height: 4px;
-        margin-top: 2px;
+        border-radius: 2px;
+        overflow: hidden;
+        margin: 4px 0;
       }
 
-      .progress-fill {
+      .mission-progress-bar {
         height: 100%;
         background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
         transition: width 0.3s ease;
       }
 
-      .hospital-requirements {
-        font-size: 11px;
-        color: #a0aec0;
-        margin-top: 6px;
+      .prestige-info {
+        background: #2d3748;
+        border-left: 3px solid #f093fb;
+        padding: 10px;
+        border-radius: 4px;
+        margin-bottom: 12px;
+        font-size: 12px;
       }
 
-      .hospital-requirements div {
-        margin-bottom: 4px;
+      .prestige-gain {
+        font-weight: bold;
+        color: #f093fb;
+        margin: 8px 0;
       }
 
       .notification-container {
@@ -400,9 +435,9 @@ class GameUI {
         padding: 12px 16px;
         border-radius: 6px;
         margin-bottom: 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
         animation: slideIn 0.3s ease, slideOut 0.3s ease 2.7s;
-        font-size: 13px;
+        font-size: 12px;
         font-weight: 600;
       }
 
@@ -428,75 +463,60 @@ class GameUI {
         }
       }
 
-      @media (max-width: 1400px) {
-        .header-stats {
-          grid-template-columns: repeat(2, 1fr);
-        }
+      /* Scrollbars */
+      .bottom-left::-webkit-scrollbar,
+      .bottom-right::-webkit-scrollbar {
+        width: 6px;
       }
 
-      @media (max-width: 1024px) {
-        .main-content {
-          flex-direction: column;
-        }
-
-        .rooms-grid {
-          grid-template-columns: repeat(3, 1fr);
-        }
+      .bottom-left::-webkit-scrollbar-track,
+      .bottom-right::-webkit-scrollbar-track {
+        background: #1a1f2e;
       }
 
-      @media (max-width: 768px) {
-        .rooms-grid {
-          grid-template-columns: repeat(2, 1fr);
-        }
-
-        .header-stats {
-          grid-template-columns: repeat(2, 1fr);
-        }
-      }
-
-      /* Scrollbar styling */
-      .left-panel::-webkit-scrollbar,
-      .right-panel::-webkit-scrollbar {
-        width: 8px;
-      }
-
-      .left-panel::-webkit-scrollbar-track,
-      .right-panel::-webkit-scrollbar-track {
-        background: #1a1f26;
-      }
-
-      .left-panel::-webkit-scrollbar-thumb,
-      .right-panel::-webkit-scrollbar-thumb {
+      .bottom-left::-webkit-scrollbar-thumb,
+      .bottom-right::-webkit-scrollbar-thumb {
         background: #667eea;
-        border-radius: 4px;
-      }
-
-      .left-panel::-webkit-scrollbar-thumb:hover,
-      .right-panel::-webkit-scrollbar-thumb:hover {
-        background: #764ba2;
+        border-radius: 3px;
       }
     `;
     document.head.appendChild(style);
   }
 
-  attachEventListeners() {
-    document.getElementById('buyDoctorBtn').addEventListener('click', () => {
-      this.game.buyDoctor();
+  setupUI() {
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.tab-btn').forEach((b) => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach((t) => t.classList.add('hidden'));
+        e.target.classList.add('active');
+        const tabId = e.target.dataset.tab + 'Tab';
+        document.getElementById(tabId).classList.remove('hidden');
+      });
     });
 
-    document.getElementById('buyNurseBtn').addEventListener('click', () => {
-      this.game.buyNurse();
+    // Serve patient button
+    document.getElementById('servePatientBtn').addEventListener('click', () => {
+      this.servePatient();
     });
+  }
 
-    document.getElementById('prestigeBtn').addEventListener('click', () => {
-      if (this.game.totalPrestige + Math.floor(Math.sqrt(this.game.money)) > this.game.totalPrestige) {
-        this.game.prestige();
-      }
-    });
+  attachEventListeners() {}
 
-    this.game.rooms.forEach((room, index) => {
-      // Will be attached in render
-    });
+  servePatient() {
+    const patient = this.game.servePatient();
+    if (patient) {
+      this.showNotification(`Served ${patient.name} +$${patient.revenuePerPatient}`);
+    }
+  }
+
+  showNotification(text) {
+    const container = document.getElementById('notificationContainer');
+    const notif = document.createElement('div');
+    notif.className = 'notification';
+    notif.textContent = text;
+    container.appendChild(notif);
+    setTimeout(() => notif.remove(), 3000);
   }
 
   formatMoney(num) {
@@ -506,179 +526,113 @@ class GameUI {
     return Math.floor(num).toString();
   }
 
-  renderRooms() {
-    const container = document.getElementById('roomsContainer');
-    container.innerHTML = this.game.rooms
-      .map(
-        (room, index) => `
-      <div class="room-card">
-        <div class="room-header">
-          <div class="room-name">${room.icon} ${room.name}</div>
-        </div>
-        <div class="room-stats">
-          <div>Owned: <strong>${room.owned}</strong></div>
-          <div>Level: <strong>${room.level}</strong></div>
-          <div>Production: <strong>${this.formatMoney(this.game.getRoomProduction(room))}/s</strong></div>
-          <div>Buy Cost: <strong>$${this.formatMoney(this.game.getRoomCost(room))}</strong></div>
-        </div>
-        <div class="room-buttons">
-          <button class="btn btn-primary room-buy-btn" data-room-id="${index}"
-            ${this.game.money < this.game.getRoomCost(room) ? 'disabled' : ''}>
-            Buy
-          </button>
-          ${room.owned > 0
-            ? `<button class="btn btn-secondary room-upgrade-btn" data-room-id="${index}"
-              ${this.game.money < this.game.getRoomCost(room) * 0.5 ? 'disabled' : ''}>
-              Upgrade
-            </button>`
-            : ''}
-        </div>
-      </div>
-    `
-      )
-      .join('');
-
-    container.querySelectorAll('.room-buy-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        this.game.buyRoom(parseInt(btn.dataset.roomId));
-      });
-    });
-
-    container.querySelectorAll('.room-upgrade-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        this.game.upgradeRoom(parseInt(btn.dataset.roomId));
-      });
-    });
-  }
-
-  renderPatientTypes() {
-    const container = document.getElementById('patientTypesContainer');
-    container.innerHTML = this.game.patientTypes
-      .map(
-        (pt) => {
-          const progress = Math.min(100, (this.game.totalPrestige / pt.prestigeRequired) * 100);
-          return `
-      <div class="patient-type-item ${pt.unlocked ? 'unlocked' : 'locked'}">
-        <div class="patient-type-info">
-          <div class="patient-type-name">${pt.icon} ${pt.name}</div>
-          <div class="patient-type-revenue">$${this.formatMoney(pt.revenuePerPatient)} per patient</div>
-          ${!pt.unlocked ? `
-            <div class="patient-type-revenue">
-              Requires ${pt.prestigeRequired} prestige (${this.game.totalPrestige}/${pt.prestigeRequired})
-            </div>
-            <div class="progress-bar">
-              <div class="progress-fill" style="width: ${progress}%"></div>
-            </div>
-          ` : ''}
-        </div>
-      </div>
-    `;
-        }
-      )
-      .join('');
-  }
-
-  renderHospitals() {
-    const container = document.getElementById('hospitalsContainer');
-    container.innerHTML = this.game.hospitals
-      .map(
-        (hospital, index) => {
-          const prestigeProgress = hospital.prestige > 0 ? Math.min(100, (this.game.totalPrestige / hospital.prestige) * 100) : 100;
-          const moneyProgress = Math.min(100, (this.game.money / hospital.cost) * 100);
-          return `
-      <div class="hospital-item ${hospital.unlocked ? '' : 'locked'}">
-        <div class="patient-type-info">
-          <div class="hospital-name">${hospital.name}</div>
-          <div class="hospital-bonus">
-            ${hospital.unlocked
-              ? `✓ ${hospital.incomeMultiplier}x income`
-              : `${hospital.incomeMultiplier}x income`}
-          </div>
-          ${!hospital.unlocked ? `
-            <div class="hospital-requirements">
-              ${hospital.prestige > 0 ? `
-                <div>Prestige: ${this.game.totalPrestige}/${hospital.prestige}</div>
-                <div class="progress-bar small">
-                  <div class="progress-fill" style="width: ${prestigeProgress}%"></div>
-                </div>
-              ` : ''}
-              <div>Money: $${this.formatMoney(this.game.money)}/$${this.formatMoney(hospital.cost)}</div>
-              <div class="progress-bar small">
-                <div class="progress-fill" style="width: ${moneyProgress}%"></div>
-              </div>
-            </div>
-          ` : ''}
-        </div>
-        ${!hospital.unlocked && this.game.currentHospital !== hospital.id
-          ? `<button class="btn btn-primary hospital-upgrade-btn" data-hospital-id="${index}"
-            ${this.game.money < hospital.cost || (hospital.prestige > 0 && this.game.totalPrestige < hospital.prestige) ? 'disabled' : ''}>
-            Unlock
-          </button>`
-          : ''}
-        ${this.game.currentHospital === index ? '<div style="color: #48bb78; font-weight: bold; font-size: 12px;">✓ ACTIVE</div>' : ''}
-      </div>
-    `;
-        }
-      )
-      .join('');
-
-    container.querySelectorAll('.hospital-upgrade-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        this.game.upgradeHospital(parseInt(btn.dataset.hospitalId));
-      });
-    });
-  }
-
   renderStats() {
     document.getElementById('money').textContent = '$' + this.formatMoney(this.game.money);
-    document.getElementById('mps').textContent = '$' + this.formatMoney(this.game.moneyPerSecond) + '/s';
-    document.getElementById('prestige').textContent = this.game.totalPrestige.toString();
-    document.getElementById('hospital').textContent = this.game.hospitals[this.game.currentHospital].name;
-    document.getElementById('doctorCount').textContent = this.game.doctors.length;
-    document.getElementById('nurseCount').textContent = this.game.nurses.length;
-
-    const doctorCost = this.game.getDoctorCost();
-    const nurseCost = this.game.getNurseCost();
-
-    const doctorBtn = document.getElementById('buyDoctorBtn');
-    const nurseBtn = document.getElementById('buyNurseBtn');
-
-    doctorBtn.textContent = `Hire Doctor - $${this.formatMoney(doctorCost)}`;
-    nurseBtn.textContent = `Hire Nurse - $${this.formatMoney(nurseCost)}`;
-
-    doctorBtn.disabled = this.game.money < doctorCost;
-    nurseBtn.disabled = this.game.money < nurseCost;
-
-    const prestigeGain = this.game.getPrestigeGain();
-    const multiplier = this.game.getPrestigeMultiplier();
-    document.getElementById('prestigeBtn').textContent = `Prestige (${prestigeGain} points)`;
-    document.getElementById('prestigeInfo').textContent = `Current bonus: ${(multiplier * 100 - 100).toFixed(0)}% from prestige. Gain ${prestigeGain} prestige and reset to unlock new features.`;
+    document.getElementById('reputation').textContent = this.game.reputation;
+    document.getElementById('mps').textContent = '$' + this.formatMoney(this.game.moneyPerSecond);
+    document.getElementById('prestige').textContent = this.game.totalPrestige;
+    document.getElementById('hospital-name').textContent = this.game.hospitals[this.game.currentHospital].name;
+    document.getElementById('servePatientBtn').disabled = this.game.patientQueue.length === 0;
   }
 
-  renderNotifications() {
-    const container = document.getElementById('notificationContainer');
-    if (this.game.unlockedNotifications && this.game.unlockedNotifications.length > 0) {
-      const now = Date.now();
-      const activeNotifications = this.game.unlockedNotifications.filter((n) => now - n.time < 3000);
-      this.game.unlockedNotifications = activeNotifications;
-
-      container.innerHTML = activeNotifications
-        .map((n) => `<div class="notification">${n.text}</div>`)
+  renderPatientQueue() {
+    const container = document.getElementById('patientQueue');
+    if (this.game.patientQueue.length === 0) {
+      container.innerHTML = '<div class="empty">No patients waiting</div>';
+    } else {
+      container.innerHTML = this.game.patientQueue
+        .slice(0, 5)
+        .map(
+          (p) =>
+            `<div class="patient-item">
+              <span>${p.icon} ${p.name}</span>
+              <span class="patient-reward">+$${p.revenuePerPatient}</span>
+            </div>`
+        )
         .join('');
     }
   }
 
+  renderStaffTab() {
+    const container = document.getElementById('staffTab');
+    let html = '';
+
+    Object.entries(this.game.staffTiers).forEach(([tier, tierData]) => {
+      const count = this.game.staffByTier[tier].length;
+      const cost = this.game.getStaffCost(tier);
+      const canAfford = this.game.money >= cost && (tier === 'intern' || this.game.reputation >= tierData.reputationCost);
+
+      html += `
+        <div style="margin-bottom: 12px;">
+          <div style="font-weight: bold; color: #667eea; margin-bottom: 8px;">${tierData.name} (${count})</div>
+          <button class="staff-hire-btn" data-tier="${tier}" ${!canAfford ? 'disabled' : ''} style="width: 100%; padding: 6px; font-size: 11px;">
+            Hire: $${this.formatMoney(cost)}
+          </button>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+
+    container.querySelectorAll('.staff-hire-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        this.game.hireStaff(btn.dataset.tier);
+      });
+    });
+  }
+
+  renderMissionsTab() {
+    const container = document.getElementById('missionsTab');
+    container.innerHTML = this.game.missions
+      .map((m) => {
+        const progress = Math.min(100, (m.current / m.target) * 100);
+        return `
+        <div class="mission-item ${m.completed ? 'completed' : ''}">
+          <div class="mission-name">${m.completed ? '✓ ' : ''}${m.name}</div>
+          <div class="mission-progress">
+            <div class="mission-progress-bar" style="width: ${progress}%"></div>
+          </div>
+          <div style="font-size: 10px; color: #a0aec0;">${m.current}/${m.target}</div>
+        </div>
+      `;
+      })
+      .join('');
+  }
+
+  renderPrestigeTab() {
+    const container = document.getElementById('prestigeTab');
+    const gain = this.game.getPrestigeGain();
+    const multiplier = this.game.getPrestigeMultiplier();
+
+    container.innerHTML = `
+      <div class="prestige-info">
+        <div style="color: #a0aec0;">Prestige Multiplier</div>
+        <div class="prestige-gain">${((multiplier - 1) * 100).toFixed(0)}% Bonus</div>
+        <div style="font-size: 11px; color: #a0aec0; margin: 8px 0;">
+          Current prestige points: <strong>${this.game.totalPrestige}</strong>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="prestigeBtn" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+        Prestige (${gain} points)
+      </button>
+    `;
+
+    document.getElementById('prestigeBtn').addEventListener('click', () => {
+      this.game.prestige();
+      this.showNotification(`Prestige! +${gain} points`);
+    });
+  }
+
   renderLoop() {
     this.renderStats();
-    this.renderRooms();
-    this.renderPatientTypes();
-    this.renderHospitals();
-    this.renderNotifications();
+    this.renderPatientQueue();
+    this.renderStaffTab();
+    this.renderMissionsTab();
+    this.renderPrestigeTab();
     requestAnimationFrame(() => this.renderLoop());
   }
 }
 
-// Start the game when DOM is ready
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     new GameUI();
