@@ -6,7 +6,7 @@ class GameEngine {
     this.lastFrameTime = Date.now();
 
     // Core resources
-    this.money = 0;
+    this.money = 5000;
     this.reputation = 0;
     this.moneyPerSecond = 0;
     this.currentHospital = 0;
@@ -116,6 +116,16 @@ class GameEngine {
     this.activeTreatments = [];
     this.checkingInPatients = [];
     this.patientsServed = 0;
+
+    // Reception system
+    this.receptionists = [];
+    this.receptionUpgrades = [
+      { id: 'rec-desk-v1', name: 'Premium Reception Desk', icon: '🏢', cost: 500, speedBonus: 0.15 },
+      { id: 'rec-system-v1', name: 'Check-in System', icon: '💻', cost: 1500, speedBonus: 0.20 },
+      { id: 'rec-queue', name: 'Queue Management', icon: '📋', cost: 2500, speedBonus: 0.25 },
+      { id: 'rec-kiosk', name: 'Self-Service Kiosk', icon: '🖥️', cost: 5000, speedBonus: 0.30 },
+    ];
+    this.receptionUpgradesBought = [];
     this.missions = [
       { id: 0, name: 'First Patient', desc: 'Serve 1 patient', target: 1, current: 0, reward: 100, reputationReward: 5, completed: false },
       { id: 1, name: 'Busy Day', desc: 'Serve 10 patients', target: 10, current: 0, reward: 500, reputationReward: 20, completed: false },
@@ -242,7 +252,45 @@ class GameEngine {
   }
 
   getCheckInDuration() {
-    return 1.2;
+    let baseDuration = 1.2;
+    const receptionistBonus = this.receptionists.length * 0.15;
+    const upgradeBonus = this.receptionUpgradesBought.reduce((sum, upId) => {
+      const upg = this.receptionUpgrades.find((u) => u.id === upId);
+      return sum + (upg ? upg.speedBonus : 0);
+    }, 0);
+    const totalSpeedBonus = receptionistBonus + upgradeBonus;
+    return Math.max(0.3, baseDuration / (1 + totalSpeedBonus));
+  }
+
+  getReceptionistCost() {
+    const baseCost = 200;
+    const count = this.receptionists.length;
+    return Math.floor(baseCost * Math.pow(1.15, count));
+  }
+
+  canHireReceptionist() {
+    return this.money >= this.getReceptionistCost();
+  }
+
+  hireReceptionist() {
+    if (!this.canHireReceptionist()) return false;
+    const cost = this.getReceptionistCost();
+    this.money -= cost;
+    this.receptionists.push({ id: Math.random() });
+    this.saveGame();
+    this.emit('receptionistHired', { cost, count: this.receptionists.length });
+    return true;
+  }
+
+  buyReceptionUpgrade(upgradeId) {
+    if (this.receptionUpgradesBought.includes(upgradeId)) return false;
+    const upg = this.receptionUpgrades.find((u) => u.id === upgradeId);
+    if (!upg || this.money < upg.cost) return false;
+    this.money -= upg.cost;
+    this.receptionUpgradesBought.push(upgradeId);
+    this.saveGame();
+    this.emit('receptionUpgradeBought', { upgrade: upg });
+    return true;
   }
 
   startPatientCheckIn() {
@@ -561,6 +609,7 @@ class GameEngine {
     this.patientQueue = [];
     this.activeTreatments = [];
     this.checkingInPatients = [];
+    this.receptionists = [];
 
     this.updateMoneyPerSecond();
     this.checkUnlocks();
@@ -674,6 +723,9 @@ class GameEngine {
           furniture: loadedRoom.furniture || [],
         }));
       }
+
+      this.receptionists = data.receptionists || [];
+      this.receptionUpgradesBought = data.receptionUpgradesBought || [];
 
       this.patientTypes = data.patientTypes || this.patientTypes;
       this.hospitals = data.hospitals || this.hospitals;

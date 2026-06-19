@@ -86,6 +86,33 @@ class GameUI {
             <div id="roomDetailContent"></div>
           </div>
 
+          <!-- Reception Panel -->
+          <div class="panel reception-panel" id="receptionPanel" style="display: none;">
+            <div class="panel-title">👨‍💼 Reception Desk</div>
+            <div class="room-detail-section">
+              <div class="detail-stat">
+                <span class="detail-label">Check-in Time</span>
+                <span class="detail-value" id="checkinTimeDisplay">1.2s</span>
+              </div>
+              <div class="detail-stat">
+                <span class="detail-label">Receptionists</span>
+                <span class="detail-value" id="receptionistCountDisplay">0</span>
+              </div>
+            </div>
+
+            <div class="room-detail-section">
+              <div class="panel-title" style="margin-bottom: 8px; font-size: 13px;">🧑‍💼 Hire Receptionist</div>
+              <button class="btn btn-primary" style="padding: 8px; width: 100%;" id="hireReceptionistBtn" onclick="gameUI.hireReceptionist()">
+                Hire ($<span id="receptionistCostDisplay">200</span>)
+              </button>
+            </div>
+
+            <div class="room-detail-section">
+              <div class="panel-title" style="margin-bottom: 8px; font-size: 13px;">🛠️ Reception Upgrades</div>
+              <div id="receptionUpgradesContainer"></div>
+            </div>
+          </div>
+
           <!-- Notification Container -->
           <div id="notifications" class="notifications"></div>
         </div>
@@ -380,6 +407,14 @@ class GameUI {
         max-height: 600px;
         overflow-y: auto;
         z-index: 100;
+      }
+
+      /* Reception Panel */
+      .reception-panel {
+        bottom: 16px;
+        right: 16px;
+        width: 300px;
+        z-index: 90;
       }
 
       .room-detail-section {
@@ -904,6 +939,53 @@ class GameUI {
     if (this.game.hireStaff(tier)) {
       this.updateUI();
     }
+  }
+
+  hireReceptionist() {
+    if (this.game.hireReceptionist()) {
+      this.showNotification('Receptionist hired! 👨‍💼', 'success');
+      this.updateUI();
+    }
+  }
+
+  buyReceptionUpgrade(upgradeId) {
+    if (this.game.buyReceptionUpgrade(upgradeId)) {
+      this.showNotification('Reception upgraded! ✨', 'success');
+      this.updateUI();
+    }
+  }
+
+  toggleReceptionPanel() {
+    const panel = document.getElementById('receptionPanel');
+    if (panel.style.display === 'none') {
+      this.updateReceptionPanel();
+      panel.style.display = 'block';
+    } else {
+      panel.style.display = 'none';
+    }
+  }
+
+  updateReceptionPanel() {
+    const checkinTime = this.game.getCheckInDuration();
+    document.getElementById('checkinTimeDisplay').textContent = checkinTime.toFixed(2) + 's';
+    document.getElementById('receptionistCountDisplay').textContent = this.game.receptionists.length;
+    document.getElementById('receptionistCostDisplay').textContent = this.game.getReceptionistCost();
+
+    const hireBtn = document.getElementById('hireReceptionistBtn');
+    hireBtn.disabled = !this.game.canHireReceptionist();
+
+    const upgradesContainer = document.getElementById('receptionUpgradesContainer');
+    upgradesContainer.innerHTML = this.game.receptionUpgrades.map((upg) => {
+      const bought = this.game.receptionUpgradesBought.includes(upg.id);
+      return `
+        <div style="margin-bottom: 6px;">
+          <div style="font-size: 12px; color: #b0c4de; margin-bottom: 2px;">${upg.icon} ${upg.name} (${Math.round(upg.speedBonus * 100)}% faster)</div>
+          <button class="btn-equip ${bought ? 'owned' : ''}" onclick="gameUI.buyReceptionUpgrade('${upg.id}')" ${bought ? 'disabled' : ''}>
+            ${bought ? 'Owned ✓' : `Buy ($${upg.cost})`}
+          </button>
+        </div>
+      `;
+    }).join('');
   }
 
   servePatient() {

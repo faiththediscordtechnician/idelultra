@@ -230,10 +230,12 @@ export class HospitalRenderer {
 
   setupCameraControls() {
     this.isDragging = false;
+    this.dragDistance = 0;
     this.prevMouse = { x: 0, y: 0 };
 
     this.renderer.domElement.addEventListener('mousedown', (e) => {
       this.isDragging = true;
+      this.dragDistance = 0;
       this.prevMouse = { x: e.clientX, y: e.clientY };
     });
 
@@ -241,6 +243,7 @@ export class HospitalRenderer {
       if (!this.isDragging) return;
       const dx = e.clientX - this.prevMouse.x;
       const dy = e.clientY - this.prevMouse.y;
+      this.dragDistance += Math.abs(dx) + Math.abs(dy);
       this.prevMouse = { x: e.clientX, y: e.clientY };
 
       const panScale = (this.viewSize / 65) * 0.22;
@@ -273,7 +276,7 @@ export class HospitalRenderer {
     this.selectedRoomIdx = null;
 
     this.renderer.domElement.addEventListener('click', (e) => {
-      if (this.isDragging) return;
+      if (this.dragDistance > 10) return;
       const rect = this.renderer.domElement.getBoundingClientRect();
       this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -297,9 +300,13 @@ export class HospitalRenderer {
       }
 
       if (clickedRoomIdx !== null) {
-        this.selectRoom(clickedRoomIdx);
-        if (window.gameUI) {
-          window.gameUI.selectRoom(clickedRoomIdx);
+        if (clickedRoomIdx === 0 && window.gameUI) {
+          window.gameUI.toggleReceptionPanel();
+        } else {
+          this.selectRoom(clickedRoomIdx);
+          if (window.gameUI) {
+            window.gameUI.selectRoom(clickedRoomIdx);
+          }
         }
       }
     });
