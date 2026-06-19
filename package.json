@@ -1,0 +1,25 @@
+{
+  "name": "idle-hospital",
+  "version": "1.0.0",
+  "description": "The ultimate incremental hospital idle game",
+  "main": "main.js",
+  "homepage": "./",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --inspect=5858",
+    "build": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^latest",
+    "electron-builder": "^latest",
+    "electron-is-dev": "^2.0.0"
+  },
+  "build": {
+    "appId": "com.hospital.idle",
+    "productName": "Idle Hospital",
+    "files": [
+      "main.js",
+      "public/**/*"
+    ]
+  }
+}
