@@ -962,13 +962,19 @@ export class HospitalRenderer {
     }
 
     const recDef = ROOM_DEFS[0];
+    if (this.game.patientQueue.length > 0) {
+      console.log('Processing', this.game.patientQueue.length, 'queue patients');
+    }
     this.game.patientQueue.slice(0, 12).forEach((patient, idx) => {
       try {
+        console.log('Queue patient', idx, '- id:', patient.id, 'has color:', patient.color);
         let mesh = this.patientMeshes.get(patient.id);
         if (!mesh) {
+          console.log('Creating mesh for queue patient:', patient.id);
           mesh = this.createCharacter(PATIENT_GOWN, 0.85, patient.color);
           this.scene.add(mesh);
           this.patientMeshes.set(patient.id, mesh);
+          console.log('Queue patient mesh created');
         }
         const row = Math.floor(idx / 4);
         const col = idx % 4;
