@@ -764,16 +764,8 @@ class GameUI {
   }
 
   selectRoom(idx) {
-    console.log('selectRoom called with idx:', idx, 'currentSelected:', this.selectedRoomIdx);
-    if (this.selectedRoomIdx === idx) {
-      this.selectedRoomIdx = null;
-      document.getElementById('roomDetailPanel').style.display = 'none';
-      console.log('Closing detail panel');
-    } else {
-      this.selectedRoomIdx = idx;
-      console.log('Showing detail for room:', idx);
-      this.showRoomDetail(idx);
-    }
+    this.selectedRoomIdx = idx;
+    this.showRoomDetail(idx);
 
     document.querySelectorAll('.room-card').forEach((card, i) => {
       if (i === this.selectedRoomIdx) {
@@ -785,13 +777,8 @@ class GameUI {
   }
 
   showRoomDetail(idx) {
-    console.log('showRoomDetail called for room:', idx);
     const room = this.game.rooms[idx];
-    if (!room) {
-      console.log('Room not found!');
-      return;
-    }
-    console.log('Room found:', room.name);
+    if (!room) return;
 
     const allStaff = [];
     Object.entries(this.game.staffByTier).forEach(([tier, list]) => {

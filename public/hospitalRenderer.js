@@ -282,7 +282,6 @@ export class HospitalRenderer {
     this.selectedRoomIdx = null;
 
     this.renderer.domElement.addEventListener('click', (e) => {
-      console.log('Canvas clicked!');
       const rect = this.renderer.domElement.getBoundingClientRect();
       this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -307,22 +306,10 @@ export class HospitalRenderer {
       }
 
       if (clickedRoomIdx !== null) {
-        console.log('Clicked room:', clickedRoomIdx, 'gameUI exists:', !!window.gameUI);
-        try {
-          if (clickedRoomIdx === 0 && window.gameUI) {
-            console.log('Calling toggleReceptionPanel');
-            window.gameUI.toggleReceptionPanel();
-          } else if (clickedRoomIdx !== 0) {
-            console.log('Calling selectRoom on gameUI');
-            this.selectRoom(clickedRoomIdx);
-            if (window.gameUI && window.gameUI.selectRoom) {
-              window.gameUI.selectRoom(clickedRoomIdx);
-            } else {
-              console.log('gameUI or selectRoom not available', window.gameUI);
-            }
-          }
-        } catch (e) {
-          console.error('Error in click handler:', e);
+        if (clickedRoomIdx === 0 && window.gameUI) {
+          window.gameUI.toggleReceptionPanel();
+        } else if (clickedRoomIdx !== 0 && window.gameUI) {
+          window.gameUI.selectRoom(clickedRoomIdx);
         }
       }
     });
