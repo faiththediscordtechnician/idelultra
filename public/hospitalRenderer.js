@@ -911,26 +911,30 @@ export class HospitalRenderer {
 
     const perRoom = new Map();
     allStaff.forEach((staff, idx) => {
-      let mesh = this.staffMeshes.get(staff.id);
-      const roomIdx = idx % ROOM_DEFS.length;
-      const slot = perRoom.get(roomIdx) || 0;
-      perRoom.set(roomIdx, slot + 1);
+      try {
+        let mesh = this.staffMeshes.get(staff.id);
+        const roomIdx = idx % ROOM_DEFS.length;
+        const slot = perRoom.get(roomIdx) || 0;
+        perRoom.set(roomIdx, slot + 1);
 
-      if (!mesh) {
-        const color = (this.game.staffTiers[staff.tier] && this.game.staffTiers[staff.tier].color) || 0x90caf9;
-        mesh = this.createCharacter(color, 0.95);
-        this.scene.add(mesh);
-        this.staffMeshes.set(staff.id, mesh);
+        if (!mesh) {
+          const color = (this.game.staffTiers[staff.tier] && this.game.staffTiers[staff.tier].color) || 0x90caf9;
+          mesh = this.createCharacter(color, 0.95);
+          this.scene.add(mesh);
+          this.staffMeshes.set(staff.id, mesh);
+        }
+
+        const roomPos = ROOM_DEFS[roomIdx];
+        const col = slot % 3;
+        const row = Math.floor(slot / 3);
+        mesh.position.set(
+          roomPos.x + 2 + col * 4,
+          0,
+          roomPos.z + 4 + row * 4
+        );
+      } catch (e) {
+        console.error('Error with staff:', staff.id, e);
       }
-
-      const roomPos = ROOM_DEFS[roomIdx];
-      const col = slot % 3;
-      const row = Math.floor(slot / 3);
-      mesh.position.set(
-        roomPos.x + 2 + col * 4,
-        0,
-        roomPos.z + 4 + row * 4
-      );
     });
   }
 
@@ -959,19 +963,23 @@ export class HospitalRenderer {
 
     const recDef = ROOM_DEFS[0];
     this.game.patientQueue.slice(0, 12).forEach((patient, idx) => {
-      let mesh = this.patientMeshes.get(patient.id);
-      if (!mesh) {
-        mesh = this.createCharacter(PATIENT_GOWN, 0.85, patient.color);
-        this.scene.add(mesh);
-        this.patientMeshes.set(patient.id, mesh);
-      }
-      const row = Math.floor(idx / 4);
-      const col = idx % 4;
-      mesh.position.set(recDef.x - 6 + col * 4, 0, recDef.z + HALF + 6 + row * 4);
+      try {
+        let mesh = this.patientMeshes.get(patient.id);
+        if (!mesh) {
+          mesh = this.createCharacter(PATIENT_GOWN, 0.85, patient.color);
+          this.scene.add(mesh);
+          this.patientMeshes.set(patient.id, mesh);
+        }
+        const row = Math.floor(idx / 4);
+        const col = idx % 4;
+        mesh.position.set(recDef.x - 6 + col * 4, 0, recDef.z + HALF + 6 + row * 4);
 
-      if (patient.mood !== undefined) {
-        const moodColor = this.game.getMoodColor(patient.mood);
-        this.showMoodIndicator(patient.id, mesh, moodColor);
+        if (patient.mood !== undefined) {
+          const moodColor = this.game.getMoodColor(patient.mood);
+          this.showMoodIndicator(patient.id, mesh, moodColor);
+        }
+      } catch (e) {
+        console.error('Error with queue patient:', patient.id, e);
       }
     });
 
@@ -985,34 +993,38 @@ export class HospitalRenderer {
           this.patientMeshes.set(patient.id, mesh);
           console.log('Patient mesh created, total meshes:', this.patientMeshes.size);
         }
-      } catch (e) {
-        console.error('Error creating patient mesh:', e);
-      }
-      const row = Math.floor(idx / 2);
-      const col = idx % 2;
-      mesh.position.set(ROOM_DEFS[0].x - 2 + col * 3, 0, ROOM_DEFS[0].z + HALF + 10 + row * 3);
+        const row = Math.floor(idx / 2);
+        const col = idx % 2;
+        mesh.position.set(ROOM_DEFS[0].x - 2 + col * 3, 0, ROOM_DEFS[0].z + HALF + 10 + row * 3);
 
-      if (patient.mood !== undefined) {
-        const moodColor = this.game.getMoodColor(patient.mood);
-        this.showMoodIndicator(patient.id, mesh, moodColor);
+        if (patient.mood !== undefined) {
+          const moodColor = this.game.getMoodColor(patient.mood);
+          this.showMoodIndicator(patient.id, mesh, moodColor);
+        }
+      } catch (e) {
+        console.error('Error with patient:', patient.id, e);
       }
     });
 
     this.game.activeTreatments.forEach(({ patient, staff }) => {
-      let mesh = this.patientMeshes.get(patient.id);
-      if (!mesh) {
-        mesh = this.createCharacter(PATIENT_GOWN, 0.85, patient.color);
-        this.scene.add(mesh);
-        this.patientMeshes.set(patient.id, mesh);
-      }
-      const staffMesh = this.staffMeshes.get(staff.id);
-      if (staffMesh) {
-        mesh.position.set(staffMesh.position.x + 1.4, 0, staffMesh.position.z);
-      }
+      try {
+        let mesh = this.patientMeshes.get(patient.id);
+        if (!mesh) {
+          mesh = this.createCharacter(PATIENT_GOWN, 0.85, patient.color);
+          this.scene.add(mesh);
+          this.patientMeshes.set(patient.id, mesh);
+        }
+        const staffMesh = this.staffMeshes.get(staff.id);
+        if (staffMesh) {
+          mesh.position.set(staffMesh.position.x + 1.4, 0, staffMesh.position.z);
+        }
 
-      if (patient.mood !== undefined) {
-        const moodColor = this.game.getMoodColor(patient.mood);
-        this.showMoodIndicator(patient.id, mesh, moodColor);
+        if (patient.mood !== undefined) {
+          const moodColor = this.game.getMoodColor(patient.mood);
+          this.showMoodIndicator(patient.id, mesh, moodColor);
+        }
+      } catch (e) {
+        console.error('Error with treating patient:', patient.id, e);
       }
     });
   }
