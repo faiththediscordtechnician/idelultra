@@ -284,6 +284,26 @@ class GameUI {
         transform: translateY(-2px);
       }
 
+      .room-card.selected {
+        background: rgba(100, 150, 255, 0.2);
+        border-color: #64d9ff;
+        box-shadow: 0 0 16px rgba(100, 217, 255, 0.3);
+      }
+
+      .room-details {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+        padding: 0 0 0 0;
+      }
+
+      .room-card.selected .room-details {
+        max-height: 500px;
+        padding: 12px 0 0 0;
+        border-top: 1px solid rgba(100, 150, 255, 0.15);
+        margin-top: 8px;
+      }
+
       .room-name {
         font-weight: bold;
         color: #64d9ff;
@@ -583,9 +603,12 @@ class GameUI {
   setupUI() {
     // Rooms
     const roomsContainer = document.getElementById('roomsContainer');
+    this.selectedRoomIdx = null;
+
     this.game.rooms.forEach((room, idx) => {
       const card = document.createElement('div');
       card.className = 'room-card';
+      card.id = `room-card-${idx}`;
       card.innerHTML = `
         <div class="room-name">${room.icon} ${room.name}</div>
         <div class="room-stats">
@@ -593,19 +616,27 @@ class GameUI {
           <div>Level: <strong id="room-level-${idx}">1</strong></div>
           <div>Output: <strong id="room-output-${idx}">0</strong>/s</div>
         </div>
-        <div class="room-cost">
-          <button class="btn btn-primary" style="margin-top: 8px; padding: 8px;" onclick="gameUI.buyRoom(${idx})">Buy ($<span id="room-cost-${idx}">0</span>)</button>
-          <button class="btn" style="margin-top: 6px; padding: 8px; background: rgba(100, 150, 255, 0.1); border: 1px solid rgba(100, 150, 255, 0.2); color: #64d9ff;" onclick="gameUI.upgradeRoom(${idx})">Upgrade ($<span id="room-upgrade-${idx}">0</span>)</button>
-        </div>
-        <div class="equip-list">
-          ${this.game.getFurnitureCatalog(idx).map((item) => `
-            <div class="equip-item">
-              <span class="equip-name">${item.icon} ${item.name} (+${Math.round(item.bonus * 100)}%)</span>
-              <button class="btn-equip" id="equip-btn-${idx}-${item.id}" onclick="gameUI.buyFurniture(${idx}, '${item.id}')">Buy ($${item.cost})</button>
-            </div>
-          `).join('')}
+        <div class="room-details">
+          <div class="room-cost">
+            <button class="btn btn-primary" style="margin-top: 8px; padding: 8px;" onclick="gameUI.buyRoom(${idx})">Buy ($<span id="room-cost-${idx}">0</span>)</button>
+            <button class="btn" style="margin-top: 6px; padding: 8px; background: rgba(100, 150, 255, 0.1); border: 1px solid rgba(100, 150, 255, 0.2); color: #64d9ff;" onclick="gameUI.upgradeRoom(${idx})">Upgrade ($<span id="room-upgrade-${idx}">0</span>)</button>
+          </div>
+          <div class="equip-list">
+            ${this.game.getFurnitureCatalog(idx).map((item) => `
+              <div class="equip-item">
+                <span class="equip-name">${item.icon} ${item.name} (+${Math.round(item.bonus * 100)}%)</span>
+                <button class="btn-equip" id="equip-btn-${idx}-${item.id}" onclick="gameUI.buyFurniture(${idx}, '${item.id}')">Buy ($${item.cost})</button>
+              </div>
+            `).join('')}
+          </div>
         </div>
       `;
+
+      card.addEventListener('click', (e) => {
+        if (e.target.tagName === 'BUTTON') return;
+        this.selectRoom(idx);
+      });
+
       roomsContainer.appendChild(card);
     });
 
@@ -647,6 +678,22 @@ class GameUI {
 
   toggleHud() {
     document.getElementById('hud').classList.toggle('hud-collapsed');
+  }
+
+  selectRoom(idx) {
+    if (this.selectedRoomIdx === idx) {
+      this.selectedRoomIdx = null;
+    } else {
+      this.selectedRoomIdx = idx;
+    }
+
+    document.querySelectorAll('.room-card').forEach((card, i) => {
+      if (i === this.selectedRoomIdx) {
+        card.classList.add('selected');
+      } else {
+        card.classList.remove('selected');
+      }
+    });
   }
 
   attachEventListeners() {
