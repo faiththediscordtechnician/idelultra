@@ -282,12 +282,14 @@ export class HospitalRenderer {
     this.selectedRoomIdx = null;
 
     this.renderer.domElement.addEventListener('click', (e) => {
+      console.log('Click event fired');
       const rect = this.renderer.domElement.getBoundingClientRect();
       this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
       this.raycaster.setFromCamera(this.mouse, this.camera);
       const intersects = this.raycaster.intersectObjects(this.scene.children, true);
+      console.log('Intersections:', intersects.length);
 
       let clickedRoomIdx = null;
       for (const intersection of intersects) {
@@ -306,11 +308,16 @@ export class HospitalRenderer {
       }
 
       if (clickedRoomIdx !== null) {
+        console.log('Room clicked:', clickedRoomIdx);
         if (clickedRoomIdx === 0 && window.gameUI) {
+          console.log('Toggling reception panel');
           window.gameUI.toggleReceptionPanel();
         } else if (clickedRoomIdx !== 0 && window.gameUI) {
+          console.log('Selecting room:', clickedRoomIdx);
           window.gameUI.selectRoom(clickedRoomIdx);
         }
+      } else {
+        console.log('No room clicked (clickedRoomIdx is null)');
       }
     });
   }
