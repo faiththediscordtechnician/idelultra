@@ -38,7 +38,42 @@ class GameEngine {
       { id: 5, name: 'Lab', type: 'lab', baseCost: 8000, costMultiplier: 1.14, baseProduction: 100, productionMultiplier: 1.2, icon: '🧪', staffCapacity: 3, color: 0x00BCD4 },
     ];
 
-    this.rooms = this.roomTypes.map(rt => ({ ...rt, owned: rt.type === 'reception' ? 1 : 0, level: 1 }));
+    this.rooms = this.roomTypes.map(rt => ({ ...rt, owned: rt.type === 'reception' ? 1 : 0, level: 1, furniture: [] }));
+
+    // Purchasable furniture/equipment per room type — each owned item multiplies
+    // that room's production, and pops into place visually once bought.
+    this.furnitureCatalog = {
+      reception: [
+        { id: 'recChairs', name: 'Comfy Chairs', icon: '🪑', cost: 300, bonus: 0.10 },
+        { id: 'recTV', name: 'TV Screen', icon: '📺', cost: 600, bonus: 0.15 },
+        { id: 'recDesk', name: 'Welcome Desk Upgrade', icon: '🛎️', cost: 1200, bonus: 0.20 },
+      ],
+      examination: [
+        { id: 'examMonitor', name: 'Diagnostic Monitor', icon: '🖥️', cost: 1500, bonus: 0.15 },
+        { id: 'examTable', name: 'Modern Exam Table', icon: '🛏️', cost: 3000, bonus: 0.20 },
+        { id: 'examCart', name: 'Medical Cart Pro', icon: '🧰', cost: 1000, bonus: 0.10 },
+      ],
+      surgery: [
+        { id: 'surgLight', name: 'Advanced Lighting', icon: '💡', cost: 6000, bonus: 0.15 },
+        { id: 'surgArm', name: 'Robotic Arm', icon: '🦾', cost: 15000, bonus: 0.25 },
+        { id: 'surgSterilize', name: 'Sterilization Unit', icon: '🧼', cost: 5000, bonus: 0.15 },
+      ],
+      icu: [
+        { id: 'icuMonitor', name: 'Vital Monitors', icon: '📈', cost: 12000, bonus: 0.15 },
+        { id: 'icuGenerator', name: 'Backup Generator', icon: '🔋', cost: 9000, bonus: 0.10 },
+        { id: 'icuBeds', name: 'Premium Beds', icon: '🛌', cost: 18000, bonus: 0.20 },
+      ],
+      pharmacy: [
+        { id: 'pharmInventory', name: 'Inventory System', icon: '📦', cost: 2000, bonus: 0.15 },
+        { id: 'pharmShelving', name: 'Extra Shelving', icon: '🗄️', cost: 1200, bonus: 0.10 },
+        { id: 'pharmCounter', name: 'Fast Dispense Counter', icon: '⚡', cost: 3500, bonus: 0.20 },
+      ],
+      lab: [
+        { id: 'labScope', name: 'Microscope Pro', icon: '🔬', cost: 7000, bonus: 0.15 },
+        { id: 'labFridge', name: 'Sample Fridge', icon: '🧊', cost: 4500, bonus: 0.10 },
+        { id: 'labAuto', name: 'Automation Rig', icon: '🤖', cost: 10000, bonus: 0.20 },
+      ],
+    };
 
     // Patient system
     this.patientTypes = [
@@ -214,7 +249,47 @@ class GameEngine {
   }
 
   getRoomProduction(room) {
-    return Math.floor(room.baseProduction * Math.pow(room.productionMultiplier, room.level - 1));
+    const base = room.baseProduction * Math.pow(room.productionMultiplier, room.level - 1);
+    return Math.floor(base * this.getFurnitureBonus(room));
+  }
+
+  // ========== FURNITURE / EQUIPMENT ==========
+
+  getFurnitureCatalog(roomIdx) {
+    const room = this.rooms[roomIdx];
+    return (room && this.furnitureCatalog[room.type]) || [];
+  }
+
+  getFurnitureBonus(room) {
+    const catalog = this.furnitureCatalog[room.type] || [];
+    return (room.furniture || []).reduce((mult, itemId) => {
+      const item = catalog.find((f) => f.id === itemId);
+      return item ? mult * (1 + item.bonus) : mult;
+    }, 1);
+  }
+
+  ownsFurniture(roomIdx, itemId) {
+    const room = this.rooms[roomIdx];
+    return !!room && room.furniture.includes(itemId);
+  }
+
+  canBuyFurniture(roomIdx, itemId) {
+    if (this.ownsFurniture(roomIdx, itemId)) return false;
+    const item = this.getFurnitureCatalog(roomIdx).find((f) => f.id === itemId);
+    return !!item && this.money >= item.cost;
+  }
+
+  buyFurniture(roomIdx, itemId) {
+    if (!this.canBuyFurniture(roomIdx, itemId)) return false;
+    const room = this.rooms[roomIdx];
+    const item = this.getFurnitureCatalog(roomIdx).find((f) => f.id === itemId);
+
+    this.money -= item.cost;
+    room.furniture.push(itemId);
+    this.updateMoneyPerSecond();
+    this.saveGame();
+    this.emit('furnitureBought', { roomIdx, itemId, room, item });
+    return true;
   }
 
   buyRoom(roomId) {
@@ -446,7 +521,8 @@ class GameEngine {
       if (data.rooms) {
         this.rooms = data.rooms.map((loadedRoom, idx) => ({
           ...this.roomTypes[idx],
-          ...loadedRoom
+          ...loadedRoom,
+          furniture: loadedRoom.furniture || [],
         }));
       }
 

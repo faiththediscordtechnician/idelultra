@@ -152,6 +152,8 @@ export class HospitalRenderer {
     this.patientMeshes = new Map();
     this.heartSprites = new Map();
     this.floatingTexts = [];
+    this.equipmentMeshes = new Map();
+    this.poppingItems = [];
     this.particleSystem = new ParticleSystem(this.scene);
 
     this.shakeTime = 0;
@@ -372,9 +374,77 @@ export class HospitalRenderer {
       const furnitureGroup = this.buildFurniture(type, color);
       group.add(furnitureGroup);
 
+      const equipmentGroup = new THREE.Group();
+      group.add(equipmentGroup);
+
       this.scene.add(group);
-      this.roomMeshes.set(idx, { group, backWall, badge, furnitureGroup, color, type });
+      this.roomMeshes.set(idx, { group, backWall, badge, furnitureGroup, equipmentGroup, color, type });
       this.applyRoomLevel(idx, room.level || 1);
+      this.syncRoomEquipment(idx, room, false);
+    });
+  }
+
+  // Generic purchasable-equipment prop: a pedestal with the catalog item's
+  // icon, used for all furniture/equipment upgrades regardless of room type.
+  buildEquipmentProp(item) {
+    const group = new THREE.Group();
+    const standH = 1.2;
+
+    const stand = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.5, 0.6, standH, 10),
+      new THREE.MeshStandardMaterial({ color: 0xcfd8dc, roughness: 0.7 })
+    );
+    stand.position.y = standH / 2;
+    stand.castShadow = true;
+    group.add(stand);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 96;
+    canvas.height = 96;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(48, 48, 44, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.font = '52px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(item.icon, 48, 54);
+    const iconTex = new THREE.CanvasTexture(canvas);
+
+    const plaque = new THREE.Mesh(
+      new THREE.CircleGeometry(0.7, 16),
+      new THREE.MeshStandardMaterial({ map: iconTex, transparent: true })
+    );
+    plaque.position.y = standH + 0.05;
+    plaque.rotation.x = -Math.PI / 2;
+    group.add(plaque);
+
+    return group;
+  }
+
+  // Places a pedestal prop for each owned furniture item; newOnly items pop in
+  // with a small overshoot animation, while items restored from a save just
+  // appear instantly at full scale.
+  syncRoomEquipment(roomIdx, room, animatePop = true) {
+    const ref = this.roomMeshes.get(roomIdx);
+    if (!ref) return;
+    const catalog = (this.game.furnitureCatalog && this.game.furnitureCatalog[room.type]) || [];
+    const owned = room.furniture || [];
+    const slots = [-9, 0, 9];
+
+    catalog.forEach((item, slotIdx) => {
+      const key = `${roomIdx}:${item.id}`;
+      if (owned.includes(item.id) && !this.equipmentMeshes.has(key)) {
+        const mesh = this.buildEquipmentProp(item);
+        mesh.position.set(slots[slotIdx % slots.length], 0, HALF - 2);
+        mesh.scale.setScalar(animatePop ? 0.001 : 1);
+        ref.equipmentGroup.add(mesh);
+        this.equipmentMeshes.set(key, mesh);
+        if (animatePop) {
+          this.poppingItems.push({ mesh, t: 0, duration: 0.5 });
+        }
+      }
     });
   }
 
@@ -491,6 +561,12 @@ export class HospitalRenderer {
       this.particleSystem.burst(room.color || 0x4CAF50, 18);
     });
 
+    this.game.on('furnitureBought', ({ roomIdx, room }) => {
+      this.syncRoomEquipment(roomIdx, room, true);
+      const pos = ROOM_DEFS[roomIdx];
+      this.particleSystem.burst(0x64d9ff, 14, new THREE.Vector3(pos.x, 6, pos.z));
+    });
+
     this.game.on('roomUpgraded', ({ room }) => {
       const idx = this.game.rooms.indexOf(room);
       if (idx >= 0) this.applyRoomLevel(idx, room.level);
@@ -559,6 +635,20 @@ export class HospitalRenderer {
         this.scene.remove(ft.sprite);
         ft.sprite.material.dispose();
         this.floatingTexts.splice(i, 1);
+      }
+    }
+  }
+
+  updatePoppingItems(deltaTime) {
+    for (let i = this.poppingItems.length - 1; i >= 0; i--) {
+      const p = this.poppingItems[i];
+      p.t += deltaTime;
+      const progress = Math.min(1, p.t / p.duration);
+      const overshoot = 1 + Math.sin(progress * Math.PI) * 0.25 * (1 - progress);
+      p.mesh.scale.setScalar(Math.max(0.001, progress * overshoot));
+      if (progress >= 1) {
+        p.mesh.scale.setScalar(1);
+        this.poppingItems.splice(i, 1);
       }
     }
   }
@@ -728,6 +818,7 @@ export class HospitalRenderer {
       sprite.scale.set(1.2 * pulse, 1.2 * pulse, 1.2 * pulse);
     });
     this.updateFloatingTexts(deltaTime);
+    this.updatePoppingItems(deltaTime);
 
     this.currentTarget.lerp(this.cameraTarget, 0.12);
     this.updateCameraPosition();

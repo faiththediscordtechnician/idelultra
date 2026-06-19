@@ -303,6 +303,48 @@ class GameUI {
         font-weight: bold;
       }
 
+      .equip-list {
+        margin-top: 10px;
+        border-top: 1px solid rgba(100, 150, 255, 0.15);
+        padding-top: 8px;
+      }
+
+      .equip-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 6px;
+        font-size: 11px;
+      }
+
+      .equip-name {
+        color: #b0c4de;
+        flex: 1;
+      }
+
+      .btn-equip {
+        padding: 4px 8px;
+        font-size: 11px;
+        border-radius: 6px;
+        border: 1px solid rgba(100, 217, 255, 0.4);
+        background: rgba(100, 217, 255, 0.12);
+        color: #64d9ff;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .btn-equip:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      .btn-equip.owned {
+        background: rgba(76, 175, 80, 0.15);
+        border-color: rgba(76, 175, 80, 0.5);
+        color: #81c784;
+      }
+
       /* Right Panel: Staff */
       .right-panel {
         right: 16px;
@@ -555,6 +597,14 @@ class GameUI {
           <button class="btn btn-primary" style="margin-top: 8px; padding: 8px;" onclick="gameUI.buyRoom(${idx})">Buy ($<span id="room-cost-${idx}">0</span>)</button>
           <button class="btn" style="margin-top: 6px; padding: 8px; background: rgba(100, 150, 255, 0.1); border: 1px solid rgba(100, 150, 255, 0.2); color: #64d9ff;" onclick="gameUI.upgradeRoom(${idx})">Upgrade ($<span id="room-upgrade-${idx}">0</span>)</button>
         </div>
+        <div class="equip-list">
+          ${this.game.getFurnitureCatalog(idx).map((item) => `
+            <div class="equip-item">
+              <span class="equip-name">${item.icon} ${item.name} (+${Math.round(item.bonus * 100)}%)</span>
+              <button class="btn-equip" id="equip-btn-${idx}-${item.id}" onclick="gameUI.buyFurniture(${idx}, '${item.id}')">Buy ($${item.cost})</button>
+            </div>
+          `).join('')}
+        </div>
       `;
       roomsContainer.appendChild(card);
     });
@@ -615,6 +665,13 @@ class GameUI {
     }
   }
 
+  buyFurniture(roomIdx, itemId) {
+    if (this.game.buyFurniture(roomIdx, itemId)) {
+      this.showNotification('Equipment installed! 🛠️', 'success');
+      this.updateUI();
+    }
+  }
+
   hireStaff(tier) {
     if (this.game.hireStaff(tier)) {
       this.updateUI();
@@ -654,6 +711,21 @@ class GameUI {
       document.getElementById(`room-output-${idx}`).textContent = Math.floor(this.game.getRoomProduction(room));
       document.getElementById(`room-cost-${idx}`).textContent = Math.floor(this.game.getRoomCost(room));
       document.getElementById(`room-upgrade-${idx}`).textContent = Math.floor(this.game.getRoomCost(room) * 0.5);
+
+      this.game.getFurnitureCatalog(idx).forEach((item) => {
+        const btn = document.getElementById(`equip-btn-${idx}-${item.id}`);
+        if (!btn) return;
+        const owned = this.game.ownsFurniture(idx, item.id);
+        if (owned) {
+          btn.textContent = 'Owned ✓';
+          btn.disabled = true;
+          btn.classList.add('owned');
+        } else {
+          btn.textContent = `Buy ($${item.cost})`;
+          btn.disabled = this.game.money < item.cost;
+          btn.classList.remove('owned');
+        }
+      });
     });
 
     // Staff
