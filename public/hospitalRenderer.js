@@ -105,6 +105,36 @@ function makeTextTexture(text, color = '#ffd700') {
   return new THREE.CanvasTexture(canvas);
 }
 
+function makeLoadingCircleTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, 128, 128);
+  ctx.strokeStyle = '#4caf50';
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.arc(64, 64, 50, 0, Math.PI * 2);
+  ctx.stroke();
+  return new THREE.CanvasTexture(canvas);
+}
+
+function makeMoodIndicator(moodColor) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, 64, 64);
+  ctx.fillStyle = '#' + moodColor.toString(16).padStart(6, '0');
+  ctx.beginPath();
+  ctx.arc(32, 32, 28, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  return new THREE.CanvasTexture(canvas);
+}
+
 export class HospitalRenderer {
   constructor(container, game) {
     this.game = game;
@@ -154,6 +184,8 @@ export class HospitalRenderer {
     this.floatingTexts = [];
     this.equipmentMeshes = new Map();
     this.poppingItems = [];
+    this.loadingCircles = new Map();
+    this.moodIndicators = new Map();
     this.particleSystem = new ParticleSystem(this.scene);
 
     this.shakeTime = 0;
@@ -230,7 +262,7 @@ export class HospitalRenderer {
     this.renderer.domElement.addEventListener('wheel', (e) => {
       e.preventDefault();
       this.viewSize += e.deltaY * 0.03;
-      this.viewSize = Math.max(28, Math.min(110, this.viewSize));
+      this.viewSize = Math.max(15, Math.min(110, this.viewSize));
       this.applyViewSize();
     });
   }
@@ -587,12 +619,30 @@ export class HospitalRenderer {
   }
 
   setupGameEvents() {
+    this.game.on('patientCheckInStarted', ({ patient }) => {
+      const mesh = this.patientMeshes.get(patient.id);
+      if (mesh) this.showLoadingCircle(`checkin-${patient.id}`, mesh);
+    });
+
+    this.game.on('patientCheckedIn', ({ patient }) => {
+      this.hideLoadingCircle(`checkin-${patient.id}`);
+      this.clearMoodIndicator(patient.id);
+    });
+
     this.game.on('treatmentStarted', ({ patient, staff }) => {
       this.startTreatmentFx(patient, staff);
+      const staffMesh = this.staffMeshes.get(staff.id);
+      if (staffMesh) this.showLoadingCircle(`treatment-${patient.id}`, staffMesh);
     });
 
     this.game.on('treatmentCompleted', ({ patient, staff }) => {
       this.completeTreatmentFx(patient, staff);
+      this.hideLoadingCircle(`treatment-${patient.id}`);
+      this.clearMoodIndicator(patient.id);
+    });
+
+    this.game.on('patientLeft', ({ patient }) => {
+      this.clearMoodIndicator(patient.id);
     });
 
     this.game.on('staffHired', ({ tier }) => {
@@ -693,6 +743,78 @@ export class HospitalRenderer {
         p.mesh.scale.setScalar(1);
         this.poppingItems.splice(i, 1);
       }
+    }
+  }
+
+  showLoadingCircle(objectId, staffMesh) {
+    if (this.loadingCircles.has(objectId)) return;
+    if (!makeLoadingCircleTexture) return;
+
+    const mat = new THREE.SpriteMaterial({ map: makeLoadingCircleTexture(), transparent: true, depthTest: false });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(0.8, 0.8, 0.8);
+    sprite.position.copy(staffMesh.position);
+    sprite.position.y = 2.8;
+    this.scene.add(sprite);
+    this.loadingCircles.set(objectId, { sprite, staffMesh, rotation: 0 });
+  }
+
+  hideLoadingCircle(objectId) {
+    const lc = this.loadingCircles.get(objectId);
+    if (lc) {
+      this.scene.remove(lc.sprite);
+      lc.sprite.material.dispose();
+      this.loadingCircles.delete(objectId);
+    }
+  }
+
+  updateLoadingCircles(deltaTime) {
+    for (const [objId, lc] of this.loadingCircles) {
+      lc.rotation += deltaTime * 8;
+      lc.sprite.rotation = lc.rotation;
+      if (lc.staffMesh) {
+        lc.sprite.position.copy(lc.staffMesh.position);
+        lc.sprite.position.y = 2.8;
+      }
+    }
+  }
+
+  showMoodIndicator(patientId, patientMesh, moodColor) {
+    const key = `mood-${patientId}`;
+    if (this.moodIndicators.has(key)) {
+      const ind = this.moodIndicators.get(key);
+      ind.sprite.material.map.dispose();
+      ind.sprite.material.map = makeMoodIndicator(moodColor);
+      return;
+    }
+
+    const mat = new THREE.SpriteMaterial({ map: makeMoodIndicator(moodColor), transparent: true, depthTest: false });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(0.4, 0.4, 0.4);
+    sprite.position.copy(patientMesh.position);
+    sprite.position.y = 2.4;
+    sprite.position.x += 0.6;
+    this.scene.add(sprite);
+    this.moodIndicators.set(key, { sprite, patientMesh });
+  }
+
+  updateMoodIndicators() {
+    for (const [key, ind] of this.moodIndicators) {
+      if (ind.patientMesh) {
+        ind.sprite.position.copy(ind.patientMesh.position);
+        ind.sprite.position.y = 2.4;
+        ind.sprite.position.x += 0.6;
+      }
+    }
+  }
+
+  clearMoodIndicator(patientId) {
+    const key = `mood-${patientId}`;
+    const ind = this.moodIndicators.get(key);
+    if (ind) {
+      this.scene.remove(ind.sprite);
+      ind.sprite.material.dispose();
+      this.moodIndicators.delete(key);
     }
   }
 
@@ -860,8 +982,11 @@ export class HospitalRenderer {
       const pulse = 1.1 + Math.sin(t * 5 + phase) * 0.15;
       sprite.scale.set(1.2 * pulse, 1.2 * pulse, 1.2 * pulse);
     });
+
     this.updateFloatingTexts(deltaTime);
     this.updatePoppingItems(deltaTime);
+    this.updateLoadingCircles(deltaTime);
+    this.updateMoodIndicators();
 
     this.currentTarget.lerp(this.cameraTarget, 0.12);
     this.updateCameraPosition();

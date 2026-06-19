@@ -38,7 +38,24 @@ class GameEngine {
       { id: 5, name: 'Lab', type: 'lab', baseCost: 8000, costMultiplier: 1.14, baseProduction: 100, productionMultiplier: 1.2, icon: '🧪', staffCapacity: 3, color: 0x00BCD4 },
     ];
 
-    this.rooms = this.roomTypes.map(rt => ({ ...rt, owned: rt.type === 'reception' ? 1 : 0, level: 1, furniture: [] }));
+    this.rooms = this.roomTypes.map(rt => ({
+      ...rt,
+      owned: rt.type === 'reception' ? 1 : 0,
+      level: 1,
+      furniture: [],
+      unlocked: rt.type === 'reception',
+      unlockedAt: rt.type === 'reception' ? 0 : -1,
+    }));
+
+    // Room unlock requirements — must hit ALL to unlock
+    this.roomUnlocks = {
+      reception: { prestige: 0, money: 0, reputation: 0, patients: 0 },
+      examination: { prestige: 0, money: 1000, reputation: 50, patients: 25 },
+      surgery: { prestige: 2, money: 50000, reputation: 500, patients: 200 },
+      icu: { prestige: 5, money: 150000, reputation: 2000, patients: 500 },
+      pharmacy: { prestige: 1, money: 5000, reputation: 100, patients: 50 },
+      lab: { prestige: 3, money: 25000, reputation: 750, patients: 300 },
+    };
 
     // Purchasable furniture/equipment per room type — each owned item multiplies
     // that room's production, and pops into place visually once bought.
@@ -96,6 +113,8 @@ class GameEngine {
     // Game content
     this.patientQueue = [];
     this.activeTreatments = [];
+    this.checkingInPatients = [];
+    this.patientsServed = 0;
     this.missions = [
       { id: 0, name: 'First Patient', desc: 'Serve 1 patient', target: 1, current: 0, reward: 100, reputationReward: 5, completed: false },
       { id: 1, name: 'Busy Day', desc: 'Serve 10 patients', target: 10, current: 0, reward: 500, reputationReward: 20, completed: false },
@@ -184,8 +203,67 @@ class GameEngine {
   addPatientToQueue() {
     const patient = this.generatePatient();
     if (patient) {
+      patient.state = 'waiting_checkin';
+      patient.checkInTime = 0;
+      patient.waitTime = 0;
+      patient.mood = 1.0;
       this.patientQueue.push(patient);
       this.emit('patientAdded', patient);
+    }
+  }
+
+  getMoodColor(mood) {
+    if (mood > 0.6) return 0x4caf50;
+    if (mood > 0.3) return 0xffc107;
+    return 0xf44336;
+  }
+
+  updatePatientMood(deltaTime) {
+    const moodDecayRate = 0.15;
+    for (let i = this.patientQueue.length - 1; i >= 0; i--) {
+      const p = this.patientQueue[i];
+      p.waitTime += deltaTime;
+      p.mood = Math.max(0, 1.0 - (p.waitTime * moodDecayRate));
+      if (p.mood <= 0) {
+        this.patientQueue.splice(i, 1);
+        this.emit('patientLeft', { patient: p });
+      }
+    }
+    for (let i = this.checkingInPatients.length - 1; i >= 0; i--) {
+      const p = this.checkingInPatients[i];
+      p.waitTime += deltaTime;
+      p.mood = Math.max(0, 1.0 - (p.waitTime * moodDecayRate));
+      if (p.mood <= 0) {
+        this.checkingInPatients.splice(i, 1);
+        this.emit('patientLeft', { patient: p });
+      }
+    }
+  }
+
+  getCheckInDuration() {
+    return 1.2;
+  }
+
+  startPatientCheckIn() {
+    if (this.patientQueue.length === 0) return false;
+    const patient = this.patientQueue.shift();
+    patient.state = 'checking_in';
+    patient.checkInRemaining = this.getCheckInDuration();
+    this.checkingInPatients.push(patient);
+    this.emit('patientCheckInStarted', { patient });
+    return true;
+  }
+
+  updateCheckIns(deltaTime) {
+    for (let i = this.checkingInPatients.length - 1; i >= 0; i--) {
+      const patient = this.checkingInPatients[i];
+      patient.checkInRemaining -= deltaTime;
+      if (patient.checkInRemaining <= 0) {
+        patient.state = 'waiting_treatment';
+        this.patientQueue.push(patient);
+        this.checkingInPatients.splice(i, 1);
+        this.emit('patientCheckedIn', { patient });
+      }
     }
   }
 
@@ -197,8 +275,13 @@ class GameEngine {
     return idle;
   }
 
-  getTreatmentDuration(staff) {
-    return Math.max(0.6, 5 / staff.efficiency);
+  getTreatmentDuration(staff, room = null) {
+    let duration = Math.max(0.6, 5 / staff.efficiency);
+    if (room) {
+      const furnitureBonus = this.getFurnitureBonus(room);
+      duration = duration / furnitureBonus;
+    }
+    return Math.max(0.3, duration);
   }
 
   canTreatPatient() {
@@ -212,10 +295,19 @@ class GameEngine {
 
     const staff = idle[0];
     const patient = this.patientQueue.shift();
+    patient.state = 'in_treatment';
     staff.busy = true;
 
-    const duration = this.getTreatmentDuration(staff);
-    this.activeTreatments.push({ id: Math.random(), patient, staff, remaining: duration, duration });
+    const allStaff = [];
+    Object.entries(this.staffByTier).forEach(([tier, list]) => {
+      list.forEach((s) => allStaff.push(s));
+    });
+    const staffIdx = allStaff.indexOf(staff);
+    const roomIdx = staffIdx % this.rooms.length;
+    const room = this.rooms[roomIdx];
+
+    const duration = this.getTreatmentDuration(staff, room);
+    this.activeTreatments.push({ id: Math.random(), patient, staff, roomIdx, remaining: duration, duration });
     this.emit('treatmentStarted', { patient, staff, duration });
     return true;
   }
@@ -232,7 +324,9 @@ class GameEngine {
         const { patient, staff } = treatment;
         this.money += patient.revenuePerPatient;
         this.reputation += patient.reputationReward;
+        this.patientsServed += 1;
         staff.busy = false;
+        patient.state = 'completed';
 
         this.updateMission('First Patient');
         this.updateMission('Busy Day');
@@ -321,6 +415,41 @@ class GameEngine {
       return true;
     }
     return false;
+  }
+
+  // ========== ROOM UNLOCKS ==========
+
+  getRoomUnlockProgress(roomType) {
+    const req = this.roomUnlocks[roomType];
+    if (!req) return null;
+    return {
+      prestige: { current: this.totalPrestige, required: req.prestige },
+      money: { current: this.money, required: req.money },
+      reputation: { current: this.reputation, required: req.reputation },
+      patients: { current: this.patientsServed, required: req.patients },
+    };
+  }
+
+  canUnlockRoom(roomType) {
+    const room = this.rooms.find((r) => r.type === roomType);
+    if (!room || room.unlocked) return false;
+    const req = this.roomUnlocks[roomType];
+    return (
+      this.totalPrestige >= req.prestige &&
+      this.money >= req.money &&
+      this.reputation >= req.reputation &&
+      this.patientsServed >= req.patients
+    );
+  }
+
+  unlockRoom(roomType) {
+    const room = this.rooms.find((r) => r.type === roomType);
+    if (!room || room.unlocked) return false;
+    room.unlocked = true;
+    room.unlockedAt = this.time;
+    this.saveGame();
+    this.emit('roomUnlocked', { room, type: roomType });
+    return true;
   }
 
   // ========== SYNERGIES ==========
@@ -420,6 +549,7 @@ class GameEngine {
     });
     this.patientQueue = [];
     this.activeTreatments = [];
+    this.checkingInPatients = [];
 
     this.updateMoneyPerSecond();
     this.checkUnlocks();
@@ -461,6 +591,12 @@ class GameEngine {
 
       this.money += this.moneyPerSecond * this.deltaTime;
       this.checkUnlocks();
+
+      this.updatePatientMood(this.deltaTime);
+      this.updateCheckIns(this.deltaTime);
+      if (this.checkingInPatients.length < 2) {
+        this.startPatientCheckIn();
+      }
 
       this.updateTreatments(this.deltaTime);
       while (this.assignNextPatient()) {
@@ -516,6 +652,8 @@ class GameEngine {
         list.forEach((s) => { s.busy = false; });
       });
       this.activeTreatments = [];
+      this.checkingInPatients = [];
+      this.patientsServed = data.patientsServed || 0;
 
       // Merge loaded rooms with roomTypes to restore color properties
       if (data.rooms) {
