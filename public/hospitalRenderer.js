@@ -283,6 +283,7 @@ export class HospitalRenderer {
 
     this.renderer.domElement.addEventListener('click', (e) => {
       if (this.dragDistance > 10) return;
+
       const rect = this.renderer.domElement.getBoundingClientRect();
       this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -291,13 +292,21 @@ export class HospitalRenderer {
       const intersects = this.raycaster.intersectObjects(this.scene.children, true);
 
       let clickedRoomIdx = null;
+
+      // Try to find a room by checking each intersection
       for (const intersection of intersects) {
         let obj = intersection.object;
-        while (obj && obj !== this.scene) {
-          if (obj.userData.roomIdx !== undefined) {
-            clickedRoomIdx = obj.userData.roomIdx;
-            break;
+
+        // Walk up the parent chain looking for a room group
+        while (obj) {
+          // Check if this object is a room group by checking roomMeshes
+          for (const [idx, room] of this.roomMeshes) {
+            if (room.group === obj) {
+              clickedRoomIdx = idx;
+              break;
+            }
           }
+          if (clickedRoomIdx !== null) break;
           obj = obj.parent;
         }
         if (clickedRoomIdx !== null) break;
