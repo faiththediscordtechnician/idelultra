@@ -307,15 +307,21 @@ export class HospitalRenderer {
 
       if (clickedRoomIdx !== null) {
         console.log('Clicked room:', clickedRoomIdx, 'gameUI exists:', !!window.gameUI);
-        if (clickedRoomIdx === 0 && window.gameUI) {
-          console.log('Calling toggleReceptionPanel');
-          window.gameUI.toggleReceptionPanel();
-        } else if (clickedRoomIdx !== 0) {
-          console.log('Calling selectRoom on gameUI');
-          this.selectRoom(clickedRoomIdx);
-          if (window.gameUI) {
-            window.gameUI.selectRoom(clickedRoomIdx);
+        try {
+          if (clickedRoomIdx === 0 && window.gameUI) {
+            console.log('Calling toggleReceptionPanel');
+            window.gameUI.toggleReceptionPanel();
+          } else if (clickedRoomIdx !== 0) {
+            console.log('Calling selectRoom on gameUI');
+            this.selectRoom(clickedRoomIdx);
+            if (window.gameUI && window.gameUI.selectRoom) {
+              window.gameUI.selectRoom(clickedRoomIdx);
+            } else {
+              console.log('gameUI or selectRoom not available', window.gameUI);
+            }
           }
+        } catch (e) {
+          console.error('Error in click handler:', e);
         }
       }
     });
