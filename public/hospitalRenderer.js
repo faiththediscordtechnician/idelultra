@@ -961,11 +961,13 @@ export class HospitalRenderer {
       }
     }
 
-    const recDef = ROOM_DEFS[0];
-    if (this.game.patientQueue.length > 0) {
-      console.log('Processing', this.game.patientQueue.length, 'queue patients');
-    }
-    this.game.patientQueue.slice(0, 12).forEach((patient, idx) => {
+    try {
+      const recDef = ROOM_DEFS[0];
+      console.log('recDef:', recDef);
+      if (this.game.patientQueue.length > 0) {
+        console.log('Processing', this.game.patientQueue.length, 'queue patients');
+      }
+      this.game.patientQueue.slice(0, 12).forEach((patient, idx) => {
       try {
         console.log('Queue patient', idx, '- id:', patient.id, 'has color:', patient.color);
         let mesh = this.patientMeshes.get(patient.id);
@@ -987,7 +989,10 @@ export class HospitalRenderer {
       } catch (e) {
         console.error('Error with queue patient:', patient.id, e);
       }
-    });
+      });
+    } catch (e) {
+      console.error('Error processing queue patients:', e);
+    }
 
     this.game.checkingInPatients.forEach((patient, idx) => {
       try {
