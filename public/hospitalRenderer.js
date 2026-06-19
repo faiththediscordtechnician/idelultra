@@ -1,4 +1,4 @@
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@r128/build/three.module.js';
+import * as THREE from 'three';
 
 export class HospitalRenderer {
   constructor(container, game) {
