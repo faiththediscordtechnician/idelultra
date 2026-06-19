@@ -150,7 +150,7 @@ export class HospitalRenderer {
     const aspect = width / height;
 
     // True isometric orthographic camera (no perspective distortion)
-    this.viewSize = 65;
+    this.viewSize = 90;
     this.isoDir = new THREE.Vector3(1, 1, 1).normalize();
     this.cameraDistance = 220;
     this.cameraTarget = new THREE.Vector3(0, 0, -15);
