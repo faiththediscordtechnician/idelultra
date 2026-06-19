@@ -976,11 +976,17 @@ export class HospitalRenderer {
     });
 
     this.game.checkingInPatients.forEach((patient, idx) => {
-      let mesh = this.patientMeshes.get(patient.id);
-      if (!mesh) {
-        mesh = this.createCharacter(PATIENT_GOWN, 0.85, patient.color);
-        this.scene.add(mesh);
-        this.patientMeshes.set(patient.id, mesh);
+      try {
+        let mesh = this.patientMeshes.get(patient.id);
+        if (!mesh) {
+          console.log('Creating patient mesh for id:', patient.id, 'color:', patient.color);
+          mesh = this.createCharacter(PATIENT_GOWN, 0.85, patient.color);
+          this.scene.add(mesh);
+          this.patientMeshes.set(patient.id, mesh);
+          console.log('Patient mesh created, total meshes:', this.patientMeshes.size);
+        }
+      } catch (e) {
+        console.error('Error creating patient mesh:', e);
       }
       const row = Math.floor(idx / 2);
       const col = idx % 2;
