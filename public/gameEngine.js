@@ -71,6 +71,8 @@ class GameEngine {
     // Event system for UI updates
     this.listeners = {};
 
+    this.maxQueueSize = 12;
+
     this.loadGame();
     this.startGameLoop();
   }
@@ -331,7 +333,6 @@ class GameEngine {
   startGameLoop() {
     this.patientSpawnTimer = 0;
     this.patientSpawnInterval = 2.5; // seconds between spawn attempts
-    this.maxQueueSize = 12;
     this.saveTimer = 0;
     this.saveInterval = 1; // seconds between autosaves
 
@@ -399,7 +400,7 @@ class GameEngine {
       this.patientTypes = data.patientTypes || this.patientTypes;
       this.hospitals = data.hospitals || this.hospitals;
       this.missions = data.missions || this.missions;
-      this.patientQueue = data.patientQueue || [];
+      this.patientQueue = (data.patientQueue || []).slice(0, this.maxQueueSize);
       this.updateMoneyPerSecond();
     }
   }
