@@ -215,11 +215,22 @@ class GameEngine {
     const totalWeight = unlockedTypes.reduce((sum, p) => sum + p.weight, 0);
     let random = Math.random() * totalWeight;
 
-    for (const patient of unlockedTypes) {
-      random -= patient.weight;
-      if (random <= 0) return { ...patient, id: Math.random() };
+    for (const patientType of unlockedTypes) {
+      random -= patientType.weight;
+      if (random <= 0) {
+        return {
+          ...patientType,
+          patientTypeId: patientType.id,
+          id: Math.random(),
+        };
+      }
     }
-    return unlockedTypes[0];
+    const pt = unlockedTypes[0];
+    return {
+      ...pt,
+      patientTypeId: pt.id,
+      id: Math.random(),
+    };
   }
 
   addPatientToQueue() {

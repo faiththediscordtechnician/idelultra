@@ -969,14 +969,12 @@ export class HospitalRenderer {
       }
       this.game.patientQueue.slice(0, 12).forEach((patient, idx) => {
       try {
-        console.log('Queue patient', idx, '- id:', patient.id, 'has color:', patient.color);
         let mesh = this.patientMeshes.get(patient.id);
         if (!mesh) {
-          console.log('Creating mesh for queue patient:', patient.id);
-          mesh = this.createCharacter(PATIENT_GOWN, 0.85, patient.color);
+          const patientColor = patient.color || (this.game.patientTypes.find(pt => pt.id === patient.patientTypeId) || {}).color || 0x4CAF50;
+          mesh = this.createCharacter(PATIENT_GOWN, 0.85, patientColor);
           this.scene.add(mesh);
           this.patientMeshes.set(patient.id, mesh);
-          console.log('Queue patient mesh created');
         }
         const row = Math.floor(idx / 4);
         const col = idx % 4;
@@ -998,11 +996,10 @@ export class HospitalRenderer {
       try {
         let mesh = this.patientMeshes.get(patient.id);
         if (!mesh) {
-          console.log('Creating patient mesh for id:', patient.id, 'color:', patient.color);
-          mesh = this.createCharacter(PATIENT_GOWN, 0.85, patient.color);
+          const patientColor = patient.color || (this.game.patientTypes.find(pt => pt.id === patient.patientTypeId) || {}).color || 0x4CAF50;
+          mesh = this.createCharacter(PATIENT_GOWN, 0.85, patientColor);
           this.scene.add(mesh);
           this.patientMeshes.set(patient.id, mesh);
-          console.log('Patient mesh created, total meshes:', this.patientMeshes.size);
         }
         const row = Math.floor(idx / 2);
         const col = idx % 2;
@@ -1021,7 +1018,8 @@ export class HospitalRenderer {
       try {
         let mesh = this.patientMeshes.get(patient.id);
         if (!mesh) {
-          mesh = this.createCharacter(PATIENT_GOWN, 0.85, patient.color);
+          const patientColor = patient.color || (this.game.patientTypes.find(pt => pt.id === patient.patientTypeId) || {}).color || 0x4CAF50;
+          mesh = this.createCharacter(PATIENT_GOWN, 0.85, patientColor);
           this.scene.add(mesh);
           this.patientMeshes.set(patient.id, mesh);
         }
