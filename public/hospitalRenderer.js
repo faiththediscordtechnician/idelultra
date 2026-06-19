@@ -796,7 +796,7 @@ export class HospitalRenderer {
   updateLoadingCircles(deltaTime) {
     for (const [objId, lc] of this.loadingCircles) {
       lc.rotation += deltaTime * 8;
-      lc.sprite.rotation = lc.rotation;
+      lc.sprite.rotation.z = lc.rotation;
       if (lc.staffMesh) {
         lc.sprite.position.copy(lc.staffMesh.position);
         lc.sprite.position.y = 2.8;
