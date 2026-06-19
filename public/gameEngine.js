@@ -229,6 +229,10 @@ class GameEngine {
     return false;
   }
 
+  getPrestigeMultiplier() {
+    return 1 + this.totalPrestige * 0.15;
+  }
+
   updateMoneyPerSecond() {
     let mps = 0;
 
@@ -248,6 +252,9 @@ class GameEngine {
     this.nurses.forEach((nurse) => {
       mps += 3 * nurse.efficiency;
     });
+
+    // Apply prestige multiplier
+    mps *= this.getPrestigeMultiplier();
 
     // Apply hospital multiplier
     const hospital = this.hospitals[this.currentHospital];
@@ -270,8 +277,14 @@ class GameEngine {
     return true;
   }
 
+  getPrestigeGain() {
+    return Math.floor(Math.sqrt(this.money / 1000));
+  }
+
   prestige() {
-    const basePrestige = Math.floor(Math.sqrt(this.money));
+    const basePrestige = this.getPrestigeGain();
+    if (basePrestige === 0) return 0;
+
     this.totalPrestige += basePrestige;
     this.money = 0;
     this.moneyPerSecond = 0;

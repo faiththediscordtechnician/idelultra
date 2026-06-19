@@ -649,9 +649,10 @@ class GameUI {
     doctorBtn.disabled = this.game.money < doctorCost;
     nurseBtn.disabled = this.game.money < nurseCost;
 
-    const prestigeGain = Math.floor(Math.sqrt(this.game.money));
+    const prestigeGain = this.game.getPrestigeGain();
+    const multiplier = this.game.getPrestigeMultiplier();
     document.getElementById('prestigeBtn').textContent = `Prestige (${prestigeGain} points)`;
-    document.getElementById('prestigeInfo').textContent = `Gain ${prestigeGain} prestige based on your wealth and reset to gain bonuses.`;
+    document.getElementById('prestigeInfo').textContent = `Current bonus: ${(multiplier * 100 - 100).toFixed(0)}% from prestige. Gain ${prestigeGain} prestige and reset to unlock new features.`;
   }
 
   renderNotifications() {
