@@ -7,53 +7,47 @@ const HALF = ROOM_SIZE / 2;
 const GAP = 8;
 
 const ROOM_DEFS = [
-  { x: -(ROOM_SIZE + GAP), z: -(ROOM_SIZE + GAP) }, // Reception
-  { x: 0, z: -(ROOM_SIZE + GAP) },                  // Exam
-  { x: (ROOM_SIZE + GAP), z: -(ROOM_SIZE + GAP) },  // Surgery
-  { x: -(ROOM_SIZE + GAP), z: 0 },                  // ICU
-  { x: 0, z: 0 },                                   // Pharmacy
-  { x: (ROOM_SIZE + GAP), z: 0 },                   // Lab
+  { x: -(ROOM_SIZE + GAP), z: -(ROOM_SIZE + GAP) },
+  { x: 0, z: -(ROOM_SIZE + GAP) },
+  { x: (ROOM_SIZE + GAP), z: -(ROOM_SIZE + GAP) },
+  { x: -(ROOM_SIZE + GAP), z: 0 },
+  { x: 0, z: 0 },
+  { x: (ROOM_SIZE + GAP), z: 0 },
 ];
 
 class BabylonRenderer {
   constructor(container, game) {
     this.container = container;
     this.game = game;
-    this.selectedRoomIdx = null;
     this.staffMeshes = new Map();
     this.patientMeshes = new Map();
 
-    // Create engine and scene
-    this.engine = new BABYLON.Engine(container, true);
-    this.scene = new BABYLON.Scene(this.engine);
-    this.scene.clearColor = new BABYLON.Color3(0.04, 0.09, 0.11);
+    try {
+      container.style.width = '100%';
+      container.style.height = '100%';
 
-    // Setup camera
-    this.setupCamera();
+      this.engine = new BABYLON.Engine(container, true, { antialias: true });
+      this.scene = new BABYLON.Scene(this.engine);
+      this.scene.clearColor = new BABYLON.Color3(0.05, 0.08, 0.12);
 
-    // Setup lighting
-    this.setupLights();
+      this.setupCamera();
+      this.setupLights();
+      this.buildHospital();
+      this.setupGameEvents();
 
-    // Build the hospital
-    this.buildHospital();
+      window.addEventListener('resize', () => this.engine.resize());
+      this.animate();
 
-    // Setup interactions
-    this.setupPointerEvents();
-
-    // Setup game events
-    this.setupGameEvents();
-
-    // Start render loop
-    this.animate();
-
-    // Handle window resize
-    window.addEventListener('resize', () => this.engine.resize());
+      console.log('✅ Babylon Renderer initialized');
+    } catch (err) {
+      console.error('❌ Babylon init error:', err);
+    }
   }
 
   setupCamera() {
-    const width = this.container.clientWidth;
-    const height = this.container.clientHeight;
-    const aspect = width / height;
+    const w = this.container.clientWidth || 1024;
+    const h = this.container.clientHeight || 768;
+    const aspect = w / h;
     const viewSize = 60;
 
     this.camera = new BABYLON.OrthographicCamera(
@@ -67,280 +61,190 @@ class BabylonRenderer {
       this.scene
     );
 
-    this.camera.position = new BABYLON.Vector3(0, 40, 30);
+    this.camera.position = new BABYLON.Vector3(15, 50, 25);
     this.camera.setTarget(BABYLON.Vector3.Zero());
-
-    // Orthographic view for isometric look
-    this.camera.inertia = 0.8;
-    this.camera.angularSensibility = 100;
   }
 
   setupLights() {
-    const light1 = new BABYLON.HemisphericLight('light1', new BABYLON.Vector3(0.5, 1, 0.5), this.scene);
-    light1.intensity = 0.8;
+    const hemLight = new BABYLON.HemisphericLight('hemLight', new BABYLON.Vector3(0.5, 1, 0.5), this.scene);
+    hemLight.intensity = 0.85;
 
-    const light2 = new BABYLON.PointLight('light2', new BABYLON.Vector3(20, 30, 20), this.scene);
-    light2.intensity = 0.6;
+    const pointLight = new BABYLON.PointLight('pointLight', new BABYLON.Vector3(30, 40, 30), this.scene);
+    pointLight.intensity = 0.7;
+    pointLight.range = 300;
 
-    const shadowGenerator = new BABYLON.ShadowGenerator(1024, light2);
-    shadowGenerator.useBlurExponentialShadowMap = true;
-    this.shadowGenerator = shadowGenerator;
+    this.shadowGen = new BABYLON.ShadowGenerator(1024, pointLight);
+    this.shadowGen.useBlurExponentialShadowMap = true;
   }
 
   buildHospital() {
-    // Ground
-    const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 200, height: 200 }, this.scene);
-    ground.material = new BABYLON.StandardMaterial('groundMat', this.scene);
-    ground.material.diffuse = new BABYLON.Color3(0.61, 0.8, 0.39);
+    const ground = BABYLON.MeshBuilder.CreateGround('ground', { width: 300, height: 300 }, this.scene);
+    ground.material = new BABYLON.StandardMaterial('gm', this.scene);
+    ground.material.diffuse = new BABYLON.Color3(0.6, 0.78, 0.38);
     ground.receiveShadows = true;
 
-    // Build each room
     this.roomMeshes = new Map();
+
     ROOM_DEFS.forEach((pos, idx) => {
       const room = this.game.rooms[idx];
-      const group = new BABYLON.TransformNode(`room-${idx}`, this.scene);
-      group.position = new BABYLON.Vector3(pos.x, 0, pos.z);
+      const group = new BABYLON.TransformNode(`room${idx}`, this.scene);
+      group.position.set(pos.x, 0, pos.z);
 
-      // Convert hex color to BABYLON.Color3
-      const colorNum = room.color;
-      const r = ((colorNum >> 16) & 255) / 255;
-      const g = ((colorNum >> 8) & 255) / 255;
-      const b = (colorNum & 255) / 255;
-      const color = new BABYLON.Color3(r, g, b);
+      const rc = room.color;
+      const color = new BABYLON.Color3(((rc >> 16) & 255) / 255, ((rc >> 8) & 255) / 255, (rc & 255) / 255);
 
       // Floor
-      const floor = BABYLON.MeshBuilder.CreateGround('floor', { width: ROOM_SIZE, height: ROOM_SIZE }, this.scene);
+      const floor = BABYLON.MeshBuilder.CreateGround(`floor${idx}`, { width: ROOM_SIZE, height: ROOM_SIZE }, this.scene);
       floor.parent = group;
-      floor.material = new BABYLON.StandardMaterial('floorMat', this.scene);
-      floor.material.diffuse = new BABYLON.Color3(0.95, 0.95, 0.95);
+      floor.position.y = 0.01;
+      floor.material = new BABYLON.StandardMaterial(`fm${idx}`, this.scene);
+      floor.material.diffuse = new BABYLON.Color3(0.94, 0.94, 0.94);
       floor.receiveShadows = true;
-      floor.position.y = 0.05;
 
       // Back wall
-      const backWall = BABYLON.MeshBuilder.CreateBox('backWall', { width: ROOM_SIZE, height: WALL_HEIGHT, depth: 0.6 }, this.scene);
-      backWall.parent = group;
-      backWall.position.z = -HALF;
-      backWall.position.y = WALL_HEIGHT / 2;
-      backWall.material = new BABYLON.StandardMaterial('wallMat', this.scene);
-      backWall.material.diffuse = color;
-      backWall.material.specularColor = new BABYLON.Color3(0.3, 0.3, 0.3);
-      backWall.castShadow = true;
-      backWall.receiveShadows = true;
+      const bwall = BABYLON.MeshBuilder.CreateBox(`bw${idx}`, { width: ROOM_SIZE, height: WALL_HEIGHT, depth: 0.8 }, this.scene);
+      bwall.parent = group;
+      bwall.position.z = -HALF;
+      bwall.position.y = WALL_HEIGHT / 2;
+      bwall.material = new BABYLON.StandardMaterial(`wm${idx}`, this.scene);
+      bwall.material.diffuse = color;
+      bwall.castShadow = true;
+      bwall.receiveShadows = true;
+      this.shadowGen.addShadowCaster(bwall);
 
       // Side wall
-      const sideWall = BABYLON.MeshBuilder.CreateBox('sideWall', { width: 0.6, height: WALL_HEIGHT, depth: ROOM_SIZE }, this.scene);
-      sideWall.parent = group;
-      sideWall.position.x = -HALF;
-      sideWall.position.y = WALL_HEIGHT / 2;
-      sideWall.material = backWall.material;
-      sideWall.castShadow = true;
-      sideWall.receiveShadows = true;
+      const swall = BABYLON.MeshBuilder.CreateBox(`sw${idx}`, { width: 0.8, height: WALL_HEIGHT, depth: ROOM_SIZE }, this.scene);
+      swall.parent = group;
+      swall.position.x = -HALF;
+      swall.position.y = WALL_HEIGHT / 2;
+      swall.material = bwall.material;
+      swall.castShadow = true;
+      swall.receiveShadows = true;
+      this.shadowGen.addShadowCaster(swall);
 
-      // Room label
-      const labelPlane = BABYLON.MeshBuilder.CreatePlane('label', { size: 8 }, this.scene);
-      labelPlane.parent = group;
-      labelPlane.position.set(0, 0.5, HALF - 1);
-      labelPlane.rotation.x = Math.PI / 2;
-
-      const labelMat = new BABYLON.StandardMaterial('labelMat', this.scene);
-      const labelTexture = new BABYLON.DynamicTexture('labelTexture', 256);
-      const ctx = labelTexture.getContext();
-      ctx.fillStyle = '#f0f0f0';
-      ctx.fillRect(0, 0, 256, 256);
-      ctx.fillStyle = '#333';
-      ctx.font = 'bold 48px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(room.name.substring(0, 3), 128, 128);
-      labelTexture.update();
-
-      labelMat.emissiveTexture = labelTexture;
-      labelMat.emissiveColor = new BABYLON.Color3(1, 1, 1);
-      labelPlane.material = labelMat;
-
-      // Make the room clickable
+      // Make floor clickable
       floor.roomIdx = idx;
       floor.actionManager = new BABYLON.ActionManager(this.scene);
       floor.actionManager.registerAction(new BABYLON.ExecuteCodeAction(
         BABYLON.ActionManager.OnPickTrigger,
         () => {
           if (window.gameUI) {
-            if (idx === 0) {
-              window.gameUI.showReception();
-            } else {
-              window.gameUI.showRoomDetail(idx);
-            }
+            if (idx === 0) window.gameUI.showReception();
+            else window.gameUI.showRoomDetail(idx);
           }
         }
       ));
 
-      this.roomMeshes.set(idx, { group, floor, backWall, sideWall, color });
-    });
-  }
-
-  setupPointerEvents() {
-    // Enable pointer events
-    this.scene.onPointerObservable.add((pointerInfo) => {
-      if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN) {
-        // Pointer down handling if needed
-      }
+      this.roomMeshes.set(idx, { group, floor });
     });
   }
 
   syncStaff() {
-    const allStaff = [];
+    const all = [];
     Object.entries(this.game.staffByTier).forEach(([tier, list]) => {
-      list.forEach(s => allStaff.push({ ...s, tier }));
+      list.forEach(s => all.push({ ...s, tier }));
     });
 
-    // Clean up removed staff
-    for (const [id, mesh] of this.staffMeshes) {
-      if (!allStaff.find(s => s.id === id)) {
-        mesh.dispose();
+    for (const [id, m] of this.staffMeshes) {
+      if (!all.find(s => s.id === id)) {
+        m.dispose();
         this.staffMeshes.delete(id);
       }
     }
 
-    // Create/update staff meshes
-    allStaff.forEach((staff, idx) => {
-      if (!this.staffMeshes.has(staff.id)) {
-        const color = this.game.staffTiers[staff.tier].color;
-        const mesh = this.createCharacterMesh(color, 1.0);
-        mesh.name = `staff-${staff.id}`;
-        this.staffMeshes.set(staff.id, mesh);
+    all.forEach((s, i) => {
+      if (!this.staffMeshes.has(s.id)) {
+        const m = this.makeChar(this.game.staffTiers[s.tier].color, 1);
+        this.staffMeshes.set(s.id, m);
       }
-
-      const mesh = this.staffMeshes.get(staff.id);
-      const roomIdx = idx % ROOM_DEFS.length;
-      const roomDef = ROOM_DEFS[roomIdx];
-      mesh.position.set(roomDef.x + 5 + (idx % 3) * 3, 0.5, roomDef.z + 5 + Math.floor(idx / 3) * 3);
+      const m = this.staffMeshes.get(s.id);
+      const rid = i % ROOM_DEFS.length;
+      const rd = ROOM_DEFS[rid];
+      m.position.set(rd.x + 5 + (i % 3) * 2.5, 0.8, rd.z + 5 + Math.floor(i / 3) * 2.5);
     });
   }
 
   syncPatients() {
-    // Get all patient IDs
-    const queueIds = new Set(this.game.patientQueue.map(p => p.id));
-    const checkinIds = new Set(this.game.checkingInPatients.map(p => p.id));
-    const treatingIds = new Set(this.game.activeTreatments.map(t => t.patient.id));
+    const qi = new Set(this.game.patientQueue.map(p => p.id));
+    const ci = new Set(this.game.checkingInPatients.map(p => p.id));
+    const ti = new Set(this.game.activeTreatments.map(t => t.patient.id));
 
-    // Clean up removed patients
-    for (const [id, mesh] of this.patientMeshes) {
-      if (!queueIds.has(id) && !checkinIds.has(id) && !treatingIds.has(id)) {
-        mesh.dispose();
+    for (const [id, m] of this.patientMeshes) {
+      if (!qi.has(id) && !ci.has(id) && !ti.has(id)) {
+        m.dispose();
         this.patientMeshes.delete(id);
       }
     }
 
-    // Queue patients (outside reception)
-    this.game.patientQueue.slice(0, 12).forEach((patient, idx) => {
-      if (!this.patientMeshes.has(patient.id)) {
-        const mesh = this.createCharacterMesh(patient.color, 0.8);
-        mesh.name = `patient-${patient.id}`;
-        this.patientMeshes.set(patient.id, mesh);
+    this.game.patientQueue.slice(0, 12).forEach((p, i) => {
+      if (!this.patientMeshes.has(p.id)) {
+        this.patientMeshes.set(p.id, this.makeChar(p.color, 0.7));
       }
-
-      const mesh = this.patientMeshes.get(patient.id);
-      const recDef = ROOM_DEFS[0];
-      const row = Math.floor(idx / 4);
-      const col = idx % 4;
-      mesh.position.set(recDef.x - 10 + col * 3, 0.5, recDef.z + 8 + row * 3);
+      const m = this.patientMeshes.get(p.id);
+      const rd = ROOM_DEFS[0];
+      m.position.set(rd.x - 11 + (i % 4) * 2.5, 0.8, rd.z + 8 + Math.floor(i / 4) * 2.5);
     });
 
-    // Check-in patients
-    this.game.checkingInPatients.forEach((patient, idx) => {
-      if (!this.patientMeshes.has(patient.id)) {
-        const mesh = this.createCharacterMesh(patient.color, 0.8);
-        mesh.name = `checkin-${patient.id}`;
-        this.patientMeshes.set(patient.id, mesh);
+    this.game.checkingInPatients.forEach((p, i) => {
+      if (!this.patientMeshes.has(p.id)) {
+        this.patientMeshes.set(p.id, this.makeChar(p.color, 0.7));
       }
-
-      const mesh = this.patientMeshes.get(patient.id);
-      const recDef = ROOM_DEFS[0];
-      mesh.position.set(recDef.x - 2 + idx * 2, 0.5, recDef.z - 5);
+      const m = this.patientMeshes.get(p.id);
+      const rd = ROOM_DEFS[0];
+      m.position.set(rd.x - 2 + i * 2, 0.8, rd.z - 7);
     });
 
-    // Treating patients
-    this.game.activeTreatments.forEach(({ patient, staff, roomIdx }) => {
-      if (!this.patientMeshes.has(patient.id)) {
-        const mesh = this.createCharacterMesh(patient.color, 0.8);
-        mesh.name = `treating-${patient.id}`;
-        this.patientMeshes.set(patient.id, mesh);
+    this.game.activeTreatments.forEach(({ patient: p, roomIdx: rid }) => {
+      if (!this.patientMeshes.has(p.id)) {
+        this.patientMeshes.set(p.id, this.makeChar(p.color, 0.7));
       }
-
-      const mesh = this.patientMeshes.get(patient.id);
-      const roomDef = ROOM_DEFS[roomIdx];
-      mesh.position.set(roomDef.x + 3, 0.5, roomDef.z + 3);
+      const m = this.patientMeshes.get(p.id);
+      const rd = ROOM_DEFS[rid];
+      m.position.set(rd.x + 3, 0.8, rd.z + 3);
     });
   }
 
-  createCharacterMesh(hexColor, scale) {
-    const group = new BABYLON.TransformNode('character', this.scene);
+  makeChar(hex, scale) {
+    const g = new BABYLON.TransformNode('c', this.scene);
+    const col = new BABYLON.Color3(((hex >> 16) & 255) / 255, ((hex >> 8) & 255) / 255, (hex & 255) / 255);
 
-    // Convert hex to BABYLON.Color3
-    const r = ((hexColor >> 16) & 255) / 255;
-    const g = ((hexColor >> 8) & 255) / 255;
-    const b = (hexColor & 255) / 255;
-    const color = new BABYLON.Color3(r, g, b);
+    const h = BABYLON.MeshBuilder.CreateSphere('h', { diameter: 0.4 * scale }, this.scene);
+    h.parent = g;
+    h.position.y = 1.1 * scale;
+    h.material = new BABYLON.StandardMaterial('hm', this.scene);
+    h.material.diffuse = new BABYLON.Color3(0.98, 0.8, 0.6);
+    h.castShadow = true;
 
-    // Head
-    const head = BABYLON.MeshBuilder.CreateSphere('head', { diameter: 0.5 * scale, segments: 16 }, this.scene);
-    head.parent = group;
-    head.position.y = 1.2 * scale;
-    head.material = new BABYLON.StandardMaterial('headMat', this.scene);
-    head.material.diffuse = new BABYLON.Color3(1, 0.8, 0.7);
-    head.castShadow = true;
+    const b = BABYLON.MeshBuilder.CreateCylinder('b', { diameter: 0.3 * scale, height: 0.7 * scale }, this.scene);
+    b.parent = g;
+    b.position.y = 0.45 * scale;
+    b.material = new BABYLON.StandardMaterial('bm', this.scene);
+    b.material.diffuse = col;
+    b.castShadow = true;
 
-    // Hair
-    const hair = BABYLON.MeshBuilder.CreateSphere('hair', { diameter: 0.6 * scale, segments: 16 }, this.scene);
-    hair.parent = group;
-    hair.position.y = 1.4 * scale;
-    hair.scaling.y = 0.7;
-    hair.material = new BABYLON.StandardMaterial('hairMat', this.scene);
-    hair.material.diffuse = new BABYLON.Color3(0.2, 0.2, 0.2);
-    hair.castShadow = true;
+    const l = BABYLON.MeshBuilder.CreateCylinder('l', { diameter: 0.2 * scale, height: 0.6 * scale }, this.scene);
+    l.parent = g;
+    l.position.y = 0.05 * scale;
+    l.material = new BABYLON.StandardMaterial('lm', this.scene);
+    l.material.diffuse = new BABYLON.Color3(0.15, 0.15, 0.15);
+    l.castShadow = true;
 
-    // Body
-    const body = BABYLON.MeshBuilder.CreateBox('body', { width: 0.3 * scale, height: 0.8 * scale, depth: 0.3 * scale }, this.scene);
-    body.parent = group;
-    body.position.y = 0.5 * scale;
-    body.material = new BABYLON.StandardMaterial('bodyMat', this.scene);
-    body.material.diffuse = color;
-    body.castShadow = true;
-
-    // Legs
-    const legs = BABYLON.MeshBuilder.CreateBox('legs', { width: 0.3 * scale, height: 0.6 * scale, depth: 0.3 * scale }, this.scene);
-    legs.parent = group;
-    legs.position.y = 0.1 * scale;
-    legs.material = new BABYLON.StandardMaterial('legsMat', this.scene);
-    legs.material.diffuse = new BABYLON.Color3(0.3, 0.3, 0.3);
-    legs.castShadow = true;
-
-    return group;
+    return g;
   }
 
   setupGameEvents() {
-    this.game.on('patientAdded', () => { /* auto-sync */ });
-    this.game.on('staffHired', () => { /* auto-sync */ });
-    this.game.on('treatmentStarted', () => { /* auto-sync */ });
-    this.game.on('treatmentCompleted', () => { /* auto-sync */ });
+    this.game.on('patientAdded', () => {});
+    this.game.on('staffHired', () => {});
   }
 
   animate() {
     this.engine.runRenderLoop(() => {
-      // Update meshes
       this.syncStaff();
       this.syncPatients();
-
-      // Render scene
       this.scene.render();
     });
   }
-
-  dispose() {
-    this.engine.dispose();
-  }
 }
 
-// Export for use
 window.BabylonRenderer = BabylonRenderer;
 export default BabylonRenderer;
