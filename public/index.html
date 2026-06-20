@@ -22,22 +22,285 @@
         #root {
             width: 100%;
             height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #gameContainer {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
         }
 
         canvas {
             display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            pointer-events: none;
+            width: 100%;
+            height: 100%;
+        }
+
+        .ui-overlay * {
+            pointer-events: auto;
+        }
+
+        /* Panels */
+        .panel {
+            position: absolute;
+            background: rgba(15, 25, 40, 0.95);
+            border: 1px solid rgba(100, 200, 255, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            color: #b0c4de;
+            font-size: 12px;
+            backdrop-filter: blur(4px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .panel-title {
+            color: #64d9ff;
+            font-weight: bold;
+            margin-bottom: 12px;
+            font-size: 14px;
+            border-bottom: 1px solid rgba(100, 200, 255, 0.2);
+            padding-bottom: 8px;
+        }
+
+        .panel-section {
+            margin-bottom: 12px;
+            padding: 8px;
+            background: rgba(100, 150, 255, 0.05);
+            border-left: 2px solid rgba(100, 200, 255, 0.2);
+        }
+
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+        }
+
+        .stat-label {
+            color: #7fb3d5;
+        }
+
+        .stat-value {
+            color: #64d9ff;
+            font-weight: bold;
+        }
+
+        .btn {
+            background: rgba(100, 150, 255, 0.2);
+            border: 1px solid rgba(100, 200, 255, 0.3);
+            color: #64d9ff;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+            margin-top: 4px;
+            margin-right: 4px;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: rgba(100, 150, 255, 0.4);
+            border-color: rgba(100, 200, 255, 0.6);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Stats panel - top left */
+        #statsPanel {
+            top: 12px;
+            left: 12px;
+            width: 280px;
+        }
+
+        /* Hospital panel - top right */
+        #hospitalPanel {
+            top: 12px;
+            right: 12px;
+            width: 200px;
+        }
+
+        /* Room detail panel - center */
+        #roomDetailPanel {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            max-height: 70vh;
+            display: none;
+            z-index: 100;
+        }
+
+        /* Reception panel - center */
+        #receptionPanel {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 400px;
+            display: none;
+            z-index: 100;
+        }
+
+        /* Patient queue panel - bottom left */
+        #patientPanel {
+            bottom: 12px;
+            left: 12px;
+            width: 300px;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(255, 100, 100, 0.2);
+            border: 1px solid rgba(255, 100, 100, 0.3);
+            color: #ff6464;
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            cursor: pointer;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .close-btn:hover {
+            background: rgba(255, 100, 100, 0.4);
+            border-color: rgba(255, 100, 100, 0.6);
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(76, 175, 80, 0.9);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 4px;
+            animation: slideIn 0.3s ease-out;
+            z-index: 1000;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translate(-50%, -100%);
+                opacity: 0;
+            }
+            to {
+                transform: translate(-50%, 0);
+                opacity: 1;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(100, 150, 255, 0.05);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 200, 255, 0.2);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 200, 255, 0.4);
         }
     </style>
 </head>
 <body>
-    <div id="root"></div>
+    <div id="root">
+        <div id="gameContainer"></div>
+        <div class="ui-overlay">
+            <!-- Stats Panel -->
+            <div class="panel" id="statsPanel">
+                <div class="panel-title">💰 Hospital Stats</div>
+                <div class="stat">
+                    <span class="stat-label">Money:</span>
+                    <span class="stat-value" id="moneyDisplay">$0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Rate:</span>
+                    <span class="stat-value" id="rateDisplay">+$0/s</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">⭐ Reputation:</span>
+                    <span class="stat-value" id="reputationDisplay">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">✨ Prestige:</span>
+                    <span class="stat-value" id="prestigeDisplay">0</span>
+                </div>
+            </div>
+
+            <!-- Hospital Panel -->
+            <div class="panel" id="hospitalPanel">
+                <div class="panel-title" id="hospitalName">Community Clinic</div>
+                <div class="stat">
+                    <span class="stat-label">Income:</span>
+                    <span class="stat-value" id="multiplierDisplay">×1.0</span>
+                </div>
+            </div>
+
+            <!-- Patient Panel -->
+            <div class="panel" id="patientPanel">
+                <div class="panel-title">👥 Queue</div>
+                <div class="stat">
+                    <span class="stat-label">Waiting:</span>
+                    <span class="stat-value" id="queueCountDisplay">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Check-in:</span>
+                    <span class="stat-value" id="checkinCountDisplay">0</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Treating:</span>
+                    <span class="stat-value" id="treatingCountDisplay">0</span>
+                </div>
+            </div>
+
+            <!-- Room Detail Panel -->
+            <div class="panel" id="roomDetailPanel">
+                <button class="close-btn" onclick="gameUI.closeRoomDetail()">×</button>
+                <div class="panel-title" id="roomDetailTitle">Room</div>
+                <div id="roomDetailContent"></div>
+            </div>
+
+            <!-- Reception Panel -->
+            <div class="panel" id="receptionPanel">
+                <button class="close-btn" onclick="gameUI.closeReception()">×</button>
+                <div class="panel-title">👨‍💼 Reception</div>
+                <div id="receptionContent"></div>
+            </div>
+        </div>
+    </div>
+
     <script type="importmap">
     {
-      "imports": {
-        "three": "https://unpkg.com/three@0.128.0/build/three.module.js"
-      }
+        "imports": {
+            "babylon": "https://cdn.jsdelivr.net/npm/babylonjs@6.34.0/babylon.module.min.js"
+        }
     }
     </script>
+    <script src="gameEngine.js" type="module"></script>
+    <script src="babylonRenderer.js" type="module"></script>
     <script src="app.js" type="module"></script>
 </body>
 </html>
