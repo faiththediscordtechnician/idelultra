@@ -1,10 +1,10 @@
 import GameEngine from './gameEngine.js';
-import BabylonRenderer from './babylonRenderer.js';
+import HospitalRenderer from './hospitalRenderer.js';
 
 class GameUI {
   constructor() {
     this.game = new GameEngine();
-    this.renderer = new BabylonRenderer(
+    this.renderer = new HospitalRenderer(
       document.getElementById('gameContainer'),
       this.game
     );

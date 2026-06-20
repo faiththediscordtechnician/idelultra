@@ -292,9 +292,15 @@
         </div>
     </div>
 
-    <script src="babylon.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@r128/build/three.module.js"
+        }
+    }
+    </script>
     <script src="gameEngine.js" type="module"></script>
-    <script src="babylonRenderer.js" type="module"></script>
+    <script src="hospitalRenderer.js" type="module"></script>
     <script src="app.js" type="module"></script>
 </body>
 </html>
