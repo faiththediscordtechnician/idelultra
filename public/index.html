@@ -99,10 +99,6 @@
             color: #00d4ff;
         }
 
-        .btn-secondary:hover:not(:disabled) {
-            background: rgba(0, 212, 255, 0.25);
-        }
-
         #statsPanel { top: 20px; left: 20px; width: 280px; }
         #roomPanel { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 420px; display: none; z-index: 1000; }
         #receptionPanel { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 420px; display: none; z-index: 1000; }
@@ -128,7 +124,6 @@
         ::-webkit-scrollbar { width: 10px; }
         ::-webkit-scrollbar-track { background: rgba(0, 212, 255, 0.05); }
         ::-webkit-scrollbar-thumb { background: #00d4ff; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #00ffff; }
 
         .staff-row {
             background: rgba(0, 212, 255, 0.08);
@@ -136,11 +131,6 @@
             padding: 10px;
             margin: 8px 0;
             border-radius: 4px;
-        }
-
-        @keyframes popupFloat {
-            0% { transform: translate(-50%, 0); opacity: 1; }
-            100% { transform: translate(-50%, -60px); opacity: 0; }
         }
     </style>
 </head>
@@ -217,30 +207,27 @@
     </div>
 
     <script>
-        const ROOM_WIDTH = 150;
-        const ROOM_HEIGHT = 120;
-        const ROOM_DEPTH = 40;
+        const ROOM_W = 160;
+        const ROOM_H = 130;
 
         const game = {
             money: 5100,
             reputation: 0,
-            prestige: 0,
             mps: 10,
             patientsServed: 0,
             patientQueue: [],
             staffList: [],
-            floatingTexts: [],
             time: 0,
             nextPatientId: 0,
             nextStaffId: 0,
 
             rooms: [
-                { id: 0, name: 'Reception', icon: '🪑', color: '#4CAF50', rgb: [76, 175, 80], owned: 1, level: 1, x: 0, y: 0, production: 0, staff: [], people: [] },
-                { id: 1, name: 'Examination', icon: '🔬', color: '#2196F3', rgb: [33, 150, 243], owned: 0, level: 1, x: 1, y: 0, production: 50, staff: [], people: [] },
-                { id: 2, name: 'Surgery', icon: '⚕️', color: '#FF6B6B', rgb: [255, 107, 107], owned: 0, level: 1, x: 2, y: 0, production: 150, staff: [], people: [] },
-                { id: 3, name: 'ICU', icon: '🏨', color: '#FF9800', rgb: [255, 152, 0], owned: 0, level: 1, x: 0, y: 1, production: 200, staff: [], people: [] },
-                { id: 4, name: 'Pharmacy', icon: '💉', color: '#9C27B0', rgb: [156, 39, 176], owned: 0, level: 1, x: 1, y: 1, production: 75, staff: [], people: [] },
-                { id: 5, name: 'Lab', icon: '🧪', color: '#00BCD4', rgb: [0, 188, 212], owned: 0, level: 1, x: 2, y: 1, production: 100, staff: [], people: [] },
+                { id: 0, name: 'Reception', icon: '🪑', baseColor: '#4CAF50', rgb: [76, 175, 80], owned: 1, level: 1, x: 0, y: 0, production: 0 },
+                { id: 1, name: 'Examination', icon: '🔬', baseColor: '#2196F3', rgb: [33, 150, 243], owned: 0, level: 1, x: 1, y: 0, production: 50 },
+                { id: 2, name: 'Surgery', icon: '⚕️', baseColor: '#FF6B6B', rgb: [255, 107, 107], owned: 0, level: 1, x: 2, y: 0, production: 150 },
+                { id: 3, name: 'ICU', icon: '🏨', baseColor: '#FF9800', rgb: [255, 152, 0], owned: 0, level: 1, x: 0, y: 1, production: 200 },
+                { id: 4, name: 'Pharmacy', icon: '💉', baseColor: '#9C27B0', rgb: [156, 39, 176], owned: 0, level: 1, x: 1, y: 1, production: 75 },
+                { id: 5, name: 'Lab', icon: '🧪', baseColor: '#00BCD4', rgb: [0, 188, 212], owned: 0, level: 1, x: 2, y: 1, production: 100 },
             ],
 
             staff: { intern: 0, resident: 0, attending: 0, specialist: 0 },
@@ -248,34 +235,19 @@
             staffNames: { intern: 'Intern', resident: 'Resident', attending: 'Attending', specialist: 'Specialist' },
             staffColors: { intern: '#90caf9', resident: '#81c784', attending: '#ffb74d', specialist: '#f06292' },
             staffRGB: { intern: [144, 202, 249], resident: [129, 199, 132], attending: [255, 183, 77], specialist: [240, 98, 146] },
-            staffEfficiency: { intern: 1, resident: 2.5, attending: 6, specialist: 12 },
-
-            addFloatingText(x, y, text, color) {
-                this.floatingTexts.push({ x, y, text, color, time: 0, duration: 2 });
-            },
 
             update(dt) {
                 this.time += dt;
 
-                // Update floating texts
-                for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
-                    this.floatingTexts[i].time += dt;
-                    if (this.floatingTexts[i].time > this.floatingTexts[i].duration) {
-                        this.floatingTexts.splice(i, 1);
-                    }
-                }
-
                 // Patient arrival
-                const maxPatients = Math.floor(20 + this.getTotalStaff() * 3);
-                if (this.patientQueue.length < maxPatients && Math.random() < 0.5 * dt) {
-                    const colors = ['#FF6B9D', '#C44569', '#FFA07A', '#87CEEB', '#98D8C8'];
+                const maxPatients = Math.floor(15 + this.getTotalStaff() * 2);
+                if (this.patientQueue.length < maxPatients && Math.random() < 0.4 * dt) {
+                    const colors = ['#FF6B9D', '#C44569', '#FFA07A', '#87CEEB'];
                     this.patientQueue.push({
                         id: this.nextPatientId++,
                         color: colors[Math.floor(Math.random() * colors.length)],
                         state: 'waiting',
                         timeInState: 0,
-                        x: 0,
-                        y: 0,
                     });
                 }
 
@@ -293,58 +265,43 @@
                         }
                     } else if (p.state === 'treating') {
                         if (p.timeInState > 3 + Math.random() * 2) {
-                            const reward = 50 + Math.random() * 100;
+                            const reward = 40 + Math.random() * 80;
                             this.money += reward;
-                            this.reputation += 2 + Math.random();
+                            this.reputation += 1;
                             this.patientsServed += 1;
-                            this.addFloatingText(0, 0, `+$${Math.floor(reward)}`, '#81c784');
                             this.patientQueue.splice(i, 1);
                         }
                     }
                 }
 
-                // Spawn staff characters
+                // Staff spawning
                 let staffNeeded = this.getTotalStaff();
                 while (this.staffList.length < staffNeeded) {
-                    const tier = this.getStaffTierForIndex(this.staffList.length);
+                    const tier = this.getStaffTierAt(this.staffList.length);
                     this.staffList.push({
                         id: this.nextStaffId++,
                         tier: tier,
-                        targetRoom: this.rooms[Math.floor(Math.random() * this.rooms.length)],
-                        moveTimer: Math.random() * 3,
+                        assignedRoom: this.rooms[Math.floor(Math.random() * this.rooms.length)],
                     });
                 }
-
-                // Remove extra staff
                 while (this.staffList.length > staffNeeded) {
                     this.staffList.pop();
                 }
 
-                // Staff room assignment
-                this.staffList.forEach(staff => {
-                    staff.moveTimer -= dt;
-                    if (staff.moveTimer <= 0) {
-                        const availableRooms = this.rooms.filter(r => r.owned > 0);
-                        staff.targetRoom = availableRooms[Math.floor(Math.random() * availableRooms.length)];
-                        staff.moveTimer = 4 + Math.random() * 3;
-                    }
-                });
-
-                // Calculate MPS
-                this.mps = 5;
+                // Calculate income
+                this.mps = 5 + this.patientQueue.filter(p => p.state === 'waiting').length * 1;
                 Object.entries(this.staff).forEach(([tier, count]) => {
-                    this.mps += count * this.staffEfficiency[tier] * 3;
+                    const multipliers = { intern: 2, resident: 6, attending: 15, specialist: 40 };
+                    this.mps += count * multipliers[tier];
                 });
-                this.mps += Math.min(this.patientQueue.length, 5) * 2;
-
                 this.money += this.mps * dt;
             },
 
-            getStaffTierForIndex(index) {
-                let current = 0;
+            getStaffTierAt(index) {
+                let total = 0;
                 for (const tier of ['intern', 'resident', 'attending', 'specialist']) {
-                    if (index < current + this.staff[tier]) return tier;
-                    current += this.staff[tier];
+                    if (index < total + this.staff[tier]) return tier;
+                    total += this.staff[tier];
                 }
                 return 'intern';
             },
@@ -398,126 +355,104 @@
             canvas.height = canvas.offsetHeight;
         }
 
-        function drawIsometricBox(x, y, w, h, d, color, rgb) {
-            // Top face
-            ctx.fillStyle = color + '80';
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(x + w, y);
-            ctx.lineTo(x + w + d/2, y + d/2);
-            ctx.lineTo(x + d/2, y + d/2);
-            ctx.closePath();
-            ctx.fill();
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 1.5;
-            ctx.stroke();
+        function drawRoomInterior(room, x, y) {
+            // Room background - light colored interior
+            ctx.fillStyle = 'rgba(245, 245, 245, 0.95)';
+            ctx.fillRect(x + 4, y + 4, ROOM_W - 8, ROOM_H - 8);
 
-            // Left face
-            ctx.fillStyle = `rgb(${rgb[0]*0.6}, ${rgb[1]*0.6}, ${rgb[2]*0.6})`;
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(x + d/2, y + d/2);
-            ctx.lineTo(x + d/2, y + h + d/2);
-            ctx.lineTo(x, y + h);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
+            // Room border
+            ctx.strokeStyle = room.baseColor;
+            ctx.lineWidth = 3;
+            ctx.strokeRect(x + 4, y + 4, ROOM_W - 8, ROOM_H - 8);
 
-            // Right face
-            ctx.fillStyle = `rgb(${rgb[0]*0.8}, ${rgb[1]*0.8}, ${rgb[2]*0.8})`;
-            ctx.beginPath();
-            ctx.moveTo(x + w, y);
-            ctx.lineTo(x + w + d/2, y + d/2);
-            ctx.lineTo(x + w + d/2, y + h + d/2);
-            ctx.lineTo(x + w, y + h);
-            ctx.closePath();
-            ctx.fill();
-            ctx.stroke();
-        }
-
-        function drawPerson(x, y, color) {
-            // Head
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.arc(x, y - 8, 4, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Body
-            ctx.fillRect(x - 2, y - 2, 4, 6);
-
-            // Arms
-            ctx.fillRect(x - 4, y, 8, 2);
-        }
-
-        function drawRoom(room) {
-            const baseX = room.x * ROOM_WIDTH + room.y * ROOM_WIDTH / 2 + 400;
-            const baseY = room.y * ROOM_HEIGHT / 2 + 150;
+            // Interior border detail
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x + 6, y + 6, ROOM_W - 12, ROOM_H - 12);
 
             if (room.owned === 0) {
-                // Empty room - just outline
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-                ctx.strokeStyle = room.color + '40';
-                ctx.lineWidth = 2;
-                drawIsometricBox(baseX, baseY, ROOM_WIDTH, ROOM_HEIGHT, ROOM_DEPTH, room.color, room.rgb);
-
-                ctx.fillStyle = room.color + '40';
+                // Empty room
+                ctx.fillStyle = 'rgba(150, 150, 150, 0.3)';
                 ctx.font = 'bold 14px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText(room.icon, baseX + ROOM_WIDTH/2 + ROOM_DEPTH/4, baseY + ROOM_HEIGHT/2 + ROOM_DEPTH/4);
+                ctx.textBaseline = 'middle';
+                ctx.fillText('Click to Buy', x + ROOM_W / 2, y + ROOM_H / 2 - 10);
+                ctx.font = '11px Arial';
+                ctx.fillText(room.icon, x + ROOM_W / 2, y + ROOM_H / 2 + 15);
                 return;
             }
 
-            // Draw room box
-            drawIsometricBox(baseX, baseY, ROOM_WIDTH, ROOM_HEIGHT, ROOM_DEPTH, room.color, room.rgb);
-
-            // Draw furniture based on room type
-            const cx = baseX + ROOM_WIDTH/2 + ROOM_DEPTH/4;
-            const cy = baseY + ROOM_HEIGHT/2 + ROOM_DEPTH/4;
-
-            ctx.fillStyle = room.color;
-            ctx.font = 'bold 36px Arial';
+            // Room icon/title
+            ctx.fillStyle = room.baseColor;
+            ctx.font = 'bold 24px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(room.icon, cx, cy - 10);
+            ctx.fillText(room.icon, x + ROOM_W / 2, y + 15);
 
-            // Room label
-            ctx.font = 'bold 11px Arial';
-            ctx.fillStyle = room.color;
-            ctx.fillText(room.name, cx, cy + 25);
+            // Room name
+            ctx.fillStyle = room.baseColor;
+            ctx.font = 'bold 10px Arial';
+            ctx.fillText(room.name, x + ROOM_W / 2, y + 30);
 
-            // Owned/Level
-            ctx.font = '9px Arial';
-            ctx.fillStyle = '#aaa';
-            ctx.fillText(`×${room.owned} | Lvl${room.level}`, cx, cy + 38);
+            // Room details
+            ctx.fillStyle = '#333';
+            ctx.font = '8px Arial';
+            ctx.fillText(`Lvl${room.level}×${room.owned}`, x + ROOM_W / 2, y + 42);
 
-            // Draw people in room
-            const patientsInRoom = game.patientQueue.filter(p => p.roomId === room.id && p.state === 'treating');
-            const staffInRoom = game.staffList.filter(s => s.targetRoom?.id === room.id);
+            // Draw people in room - varied positions
+            const patientsInRoom = game.patientQueue.filter(p => p.roomId === room.id);
+            const staffInRoom = game.staffList.filter(s => s.assignedRoom.id === room.id);
 
-            let personIdx = 0;
-            patientsInRoom.slice(0, 2).forEach(() => {
-                const px = baseX + 20 + personIdx * 30;
-                const py = baseY + 60;
-                drawPerson(px, py, patientsInRoom[personIdx]?.color || '#FF6B9D');
-                personIdx++;
+            // Patients
+            patientsInRoom.slice(0, 3).forEach((p, idx) => {
+                const px = x + 20 + idx * 35;
+                const py = y + 65;
+                drawPerson(px, py, p.color, 0.7);
             });
 
-            staffInRoom.slice(0, 2).forEach((staff, idx) => {
-                const sx = baseX + 20 + idx * 30 + (patientsInRoom.length > 0 ? 30 : 0);
-                const sy = baseY + 60;
-                drawPerson(sx, sy, game.staffColors[staff.tier]);
+            // Staff
+            staffInRoom.slice(0, 2).forEach((s, idx) => {
+                const sx = x + 25 + idx * 45;
+                const sy = y + 95;
+                drawPerson(sx, sy, game.staffColors[s.tier], 0.75);
             });
 
-            room.clickArea = {
-                x: baseX - 10,
-                y: baseY - 20,
-                w: ROOM_WIDTH + ROOM_DEPTH/2 + 20,
-                h: ROOM_HEIGHT + ROOM_DEPTH + 20
-            };
+            // Activity indicator
+            if ((patientsInRoom.length > 0 || staffInRoom.length > 0) && Math.sin(game.time * 4) > 0.5) {
+                ctx.fillStyle = room.baseColor + '66';
+                ctx.beginPath();
+                ctx.arc(x + ROOM_W - 12, y + 12, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            room.clickArea = { x, y, w: ROOM_W, h: ROOM_H };
+        }
+
+        function drawPerson(x, y, color, scale = 1) {
+            const headR = 3 * scale;
+            const bodyW = 3 * scale;
+            const bodyH = 6 * scale;
+            const armW = 7 * scale;
+
+            // Head
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc(x, y - bodyH / 2 - 2, headR, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Body
+            ctx.fillStyle = color;
+            ctx.fillRect(x - bodyW / 2, y - bodyH / 2 + 1, bodyW, bodyH - 2);
+
+            // Arms
+            ctx.fillRect(x - armW / 2, y - bodyH / 4, armW, 1.5 * scale);
+
+            // Legs
+            ctx.fillRect(x - 1.5 * scale, y + bodyH / 2, 1.5 * scale, 3 * scale);
+            ctx.fillRect(x, y + bodyH / 2, 1.5 * scale, 3 * scale);
         }
 
         function drawGame() {
-            // Background
             const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
             bgGrad.addColorStop(0, '#0a0d14');
             bgGrad.addColorStop(1, '#0f1219');
@@ -533,39 +468,27 @@
                 ctx.lineTo(i, canvas.height);
                 ctx.stroke();
             }
-            for (let i = 0; i < canvas.height; i += 50) {
-                ctx.beginPath();
-                ctx.moveTo(0, i);
-                ctx.lineTo(canvas.width, i);
-                ctx.stroke();
-            }
 
-            // Draw rooms (back to front for proper layering)
-            game.rooms.forEach(room => drawRoom(room));
-
-            // Draw floating texts
-            game.floatingTexts.forEach(ft => {
-                const progress = ft.time / ft.duration;
-                ctx.globalAlpha = Math.max(0, 1 - progress);
-                ctx.fillStyle = ft.color;
-                ctx.font = 'bold 18px Arial';
-                ctx.textAlign = 'center';
-                ctx.shadowColor = 'rgba(0,0,0,0.8)';
-                ctx.shadowBlur = 8;
-                ctx.fillText(ft.text, 100, 100 - progress * 50);
-                ctx.shadowBlur = 0;
-                ctx.globalAlpha = 1;
+            // Draw rooms in grid
+            const gridW = 3;
+            const spacing = 20;
+            game.rooms.forEach(room => {
+                const gx = room.x;
+                const gy = room.y;
+                const px = gx * (ROOM_W + spacing) + 280;
+                const py = gy * (ROOM_H + spacing) + 140;
+                drawRoomInterior(room, px, py);
             });
 
-            // Info overlay
-            ctx.font = 'bold 14px Arial';
+            // Info
+            ctx.font = 'bold 13px Arial';
             ctx.fillStyle = '#00d4ff';
             ctx.textAlign = 'left';
-            ctx.fillText(`👥 Patients Waiting: ${game.patientQueue.filter(p => p.state === 'waiting').length}`, 20, 30);
+            ctx.fillText(`👥 Waiting: ${game.patientQueue.filter(p => p.state === 'waiting').length}`, 20, 30);
 
-            ctx.font = '12px Arial';
+            ctx.font = '11px Arial';
             ctx.fillStyle = '#90b0d4';
-            ctx.fillText(`👨‍⚕️ Staff: ${game.getTotalStaff()} | 💰 +$${game.format(game.mps)}/s`, 20, 48);
+            ctx.fillText(`👨‍⚕️ Staff: ${game.getTotalStaff()} • Income: +$${game.format(game.mps)}/s`, 20, 48);
         }
 
         function updateUI() {
@@ -594,7 +517,7 @@
             let html = `
                 <div class="stat-line"><span class="stat-label">Owned:</span><span class="stat-val">${room.owned}</span></div>
                 <div class="stat-line"><span class="stat-label">Level:</span><span class="stat-val">${room.level}</span></div>
-                <div class="stat-line"><span class="stat-label">Value:</span><span class="stat-val">$${game.format(room.production * room.level)}/patient</span></div>
+                <div class="stat-line"><span class="stat-label">Revenue/Patient:</span><span class="stat-val">$${game.format(room.production * room.level)}</span></div>
 
                 <button class="btn" onclick="game.buyRoom(${id}); updateUI(); showRoom(${id});" ${game.money < buyCost ? 'disabled' : ''}>
                     BUY ANOTHER - $${game.format(buyCost)}
@@ -616,7 +539,7 @@
             const panel = document.getElementById('receptionPanel');
             const content = document.getElementById('receptionContent');
 
-            let html = '<div style="margin-bottom: 12px; font-size: 11px; color: #90b0d4;">Hire medical staff to treat more patients and increase hospital income.</div>';
+            let html = '<div style="margin-bottom: 12px; font-size: 11px; color: #90b0d4;">Hire skilled medical staff to treat more patients faster.</div>';
             ['intern', 'resident', 'attending', 'specialist'].forEach(tier => {
                 const cost = game.staffCosts[tier];
                 const name = game.staffNames[tier];
