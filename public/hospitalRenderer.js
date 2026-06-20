@@ -280,44 +280,54 @@ export class HospitalRenderer {
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
     this.selectedRoomIdx = null;
+    this.roomGroupMap = new Map(); // Direct mapping: mesh → room index
 
     this.renderer.domElement.addEventListener('click', (e) => {
-      console.log('Click event fired');
+      // Calculate mouse coordinates
       const rect = this.renderer.domElement.getBoundingClientRect();
       this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
+      // Raycast from camera through mouse position
       this.raycaster.setFromCamera(this.mouse, this.camera);
       const intersects = this.raycaster.intersectObjects(this.scene.children, true);
-      console.log('Intersections:', intersects.length);
 
       let clickedRoomIdx = null;
+
+      // Check each intersection, climbing the hierarchy to find the room
       for (const intersection of intersects) {
         let obj = intersection.object;
-        while (obj) {
-          for (const [idx, room] of this.roomMeshes) {
-            if (room.group === obj) {
+
+        // Climb up the object hierarchy to find a room
+        while (obj && clickedRoomIdx === null) {
+          // Check if this object is directly in our room map
+          if (this.roomGroupMap.has(obj)) {
+            clickedRoomIdx = this.roomGroupMap.get(obj);
+            break;
+          }
+
+          // Check all rooms to see if obj is part of them
+          for (const [idx, roomData] of this.roomMeshes) {
+            if (roomData.group === obj) {
               clickedRoomIdx = idx;
               break;
             }
           }
+
           if (clickedRoomIdx !== null) break;
           obj = obj.parent;
         }
+
         if (clickedRoomIdx !== null) break;
       }
 
-      if (clickedRoomIdx !== null) {
-        console.log('Room clicked:', clickedRoomIdx);
-        if (clickedRoomIdx === 0 && window.gameUI) {
-          console.log('Toggling reception panel');
+      // Handle the click
+      if (clickedRoomIdx !== null && window.gameUI) {
+        if (clickedRoomIdx === 0) {
           window.gameUI.toggleReceptionPanel();
-        } else if (clickedRoomIdx !== 0 && window.gameUI) {
-          console.log('Selecting room:', clickedRoomIdx);
+        } else {
           window.gameUI.selectRoom(clickedRoomIdx);
         }
-      } else {
-        console.log('No room clicked (clickedRoomIdx is null)');
       }
     });
   }
@@ -472,6 +482,7 @@ export class HospitalRenderer {
       this.scene.add(group);
       group.userData.roomIdx = idx;
       this.roomMeshes.set(idx, { group, backWall, badge, furnitureGroup, equipmentGroup, color, type });
+      this.roomGroupMap.set(group, idx); // Direct map for fast lookup
       this.applyRoomLevel(idx, room.level || 1);
       this.syncRoomEquipment(idx, room, false);
     });
