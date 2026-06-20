@@ -5,296 +5,263 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🏥 Idle Hospital Empire</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html, body {
-            width: 100%;
-            height: 100%;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #0a0e17;
-            overflow: hidden;
-        }
-
-        #root {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-        }
-
-        #gameContainer {
-            flex: 1;
-            position: relative;
-            overflow: hidden;
-        }
-
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
-        .ui-overlay {
-            position: absolute;
-            pointer-events: none;
-            width: 100%;
-            height: 100%;
-        }
-
-        .ui-overlay * {
-            pointer-events: auto;
-        }
-
-        /* Panels */
-        .panel {
-            position: absolute;
-            background: rgba(15, 25, 40, 0.95);
-            border: 1px solid rgba(100, 200, 255, 0.3);
-            border-radius: 8px;
-            padding: 16px;
-            color: #b0c4de;
-            font-size: 12px;
-            backdrop-filter: blur(4px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-            max-height: 80vh;
-            overflow-y: auto;
-        }
-
-        .panel-title {
-            color: #64d9ff;
-            font-weight: bold;
-            margin-bottom: 12px;
-            font-size: 14px;
-            border-bottom: 1px solid rgba(100, 200, 255, 0.2);
-            padding-bottom: 8px;
-        }
-
-        .panel-section {
-            margin-bottom: 12px;
-            padding: 8px;
-            background: rgba(100, 150, 255, 0.05);
-            border-left: 2px solid rgba(100, 200, 255, 0.2);
-        }
-
-        .stat {
-            display: flex;
-            justify-content: space-between;
-            padding: 4px 0;
-        }
-
-        .stat-label {
-            color: #7fb3d5;
-        }
-
-        .stat-value {
-            color: #64d9ff;
-            font-weight: bold;
-        }
-
-        .btn {
-            background: rgba(100, 150, 255, 0.2);
-            border: 1px solid rgba(100, 200, 255, 0.3);
-            color: #64d9ff;
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 11px;
-            transition: all 0.2s;
-            margin-top: 4px;
-            margin-right: 4px;
-        }
-
-        .btn:hover:not(:disabled) {
-            background: rgba(100, 150, 255, 0.4);
-            border-color: rgba(100, 200, 255, 0.6);
-        }
-
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        /* Stats panel - top left */
-        #statsPanel {
-            top: 12px;
-            left: 12px;
-            width: 280px;
-        }
-
-        /* Hospital panel - top right */
-        #hospitalPanel {
-            top: 12px;
-            right: 12px;
-            width: 200px;
-        }
-
-        /* Room detail panel - center */
-        #roomDetailPanel {
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 400px;
-            max-height: 70vh;
-            display: none;
-            z-index: 100;
-        }
-
-        /* Reception panel - center */
-        #receptionPanel {
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 400px;
-            display: none;
-            z-index: 100;
-        }
-
-        /* Patient queue panel - bottom left */
-        #patientPanel {
-            bottom: 12px;
-            left: 12px;
-            width: 300px;
-        }
-
-        .close-btn {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            background: rgba(255, 100, 100, 0.2);
-            border: 1px solid rgba(255, 100, 100, 0.3);
-            color: #ff6464;
-            width: 24px;
-            height: 24px;
-            padding: 0;
-            cursor: pointer;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-        }
-
-        .close-btn:hover {
-            background: rgba(255, 100, 100, 0.4);
-            border-color: rgba(255, 100, 100, 0.6);
-        }
-
-        .notification {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(76, 175, 80, 0.9);
-            color: white;
-            padding: 12px 20px;
-            border-radius: 4px;
-            animation: slideIn 0.3s ease-out;
-            z-index: 1000;
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translate(-50%, -100%);
-                opacity: 0;
-            }
-            to {
-                transform: translate(-50%, 0);
-                opacity: 1;
-            }
-        }
-
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: rgba(100, 150, 255, 0.05);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: rgba(100, 200, 255, 0.2);
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(100, 200, 255, 0.4);
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body, html { width: 100%; height: 100%; font-family: 'Segoe UI', sans-serif; background: #0a0e17; }
+        #gameContainer { width: 100%; height: 100%; display: flex; }
+        canvas { flex: 1; background: #0a0e17; }
+        .ui-panel { position: absolute; background: rgba(15, 25, 40, 0.95); border: 1px solid rgba(100, 200, 255, 0.3); border-radius: 8px; padding: 16px; color: #b0c4de; font-size: 12px; backdrop-filter: blur(4px); }
+        .panel-title { color: #64d9ff; font-weight: bold; margin-bottom: 12px; border-bottom: 1px solid rgba(100, 200, 255, 0.2); padding-bottom: 8px; }
+        .stat { display: flex; justify-content: space-between; padding: 4px 0; }
+        .btn { background: rgba(100, 150, 255, 0.2); border: 1px solid rgba(100, 200, 255, 0.3); color: #64d9ff; padding: 8px 12px; border-radius: 4px; cursor: pointer; margin-top: 6px; font-size: 11px; }
+        .btn:hover { background: rgba(100, 150, 255, 0.4); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        #statsPanel { top: 12px; left: 12px; width: 240px; }
+        #hospitalPanel { top: 12px; right: 12px; width: 180px; }
+        #queuePanel { bottom: 12px; left: 12px; width: 240px; }
+        #roomPanel { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 350px; max-height: 60vh; overflow-y: auto; display: none; }
+        #receptionPanel { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 350px; display: none; }
+        .close { position: absolute; top: 8px; right: 8px; background: rgba(255, 100, 100, 0.2); border: 1px solid rgba(255, 100, 100, 0.3); color: #ff6464; width: 24px; height: 24px; cursor: pointer; border-radius: 4px; }
+        .room-btn { display: inline-block; width: 80px; height: 80px; margin: 8px; background: rgba(100, 150, 255, 0.1); border: 2px solid rgba(100, 200, 255, 0.3); border-radius: 8px; cursor: pointer; text-align: center; padding: 8px; font-size: 10px; }
+        .room-btn:hover { background: rgba(100, 150, 255, 0.2); }
+        .room-btn.selected { border-color: #64d9ff; background: rgba(100, 150, 255, 0.3); }
     </style>
 </head>
 <body>
-    <div id="root">
-        <div id="gameContainer"></div>
-        <div class="ui-overlay">
-            <!-- Stats Panel -->
-            <div class="panel" id="statsPanel">
-                <div class="panel-title">💰 Hospital Stats</div>
-                <div class="stat">
-                    <span class="stat-label">Money:</span>
-                    <span class="stat-value" id="moneyDisplay">$0</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-label">Rate:</span>
-                    <span class="stat-value" id="rateDisplay">+$0/s</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-label">⭐ Reputation:</span>
-                    <span class="stat-value" id="reputationDisplay">0</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-label">✨ Prestige:</span>
-                    <span class="stat-value" id="prestigeDisplay">0</span>
-                </div>
-            </div>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
 
-            <!-- Hospital Panel -->
-            <div class="panel" id="hospitalPanel">
-                <div class="panel-title" id="hospitalName">Community Clinic</div>
-                <div class="stat">
-                    <span class="stat-label">Income:</span>
-                    <span class="stat-value" id="multiplierDisplay">×1.0</span>
-                </div>
-            </div>
+        <div class="ui-panel" id="statsPanel">
+            <div class="panel-title">💰 Hospital Stats</div>
+            <div class="stat"><span>Money:</span><span id="moneyDisplay">$5,000</span></div>
+            <div class="stat"><span>Rate:</span><span id="rateDisplay">+$0/s</span></div>
+            <div class="stat"><span>⭐ Reputation:</span><span id="repDisplay">0</span></div>
+            <div class="stat"><span>✨ Prestige:</span><span id="prestigeDisplay">0</span></div>
+        </div>
 
-            <!-- Patient Panel -->
-            <div class="panel" id="patientPanel">
-                <div class="panel-title">👥 Queue</div>
-                <div class="stat">
-                    <span class="stat-label">Waiting:</span>
-                    <span class="stat-value" id="queueCountDisplay">0</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-label">Check-in:</span>
-                    <span class="stat-value" id="checkinCountDisplay">0</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-label">Treating:</span>
-                    <span class="stat-value" id="treatingCountDisplay">0</span>
-                </div>
-            </div>
+        <div class="ui-panel" id="hospitalPanel">
+            <div class="panel-title">🏥 Community Clinic</div>
+            <div class="stat"><span>Income:</span><span id="incomeDisplay">×1.0</span></div>
+        </div>
 
-            <!-- Room Detail Panel -->
-            <div class="panel" id="roomDetailPanel">
-                <button class="close-btn" onclick="gameUI.closeRoomDetail()">×</button>
-                <div class="panel-title" id="roomDetailTitle">Room</div>
-                <div id="roomDetailContent"></div>
-            </div>
+        <div class="ui-panel" id="queuePanel">
+            <div class="panel-title">👥 Queue</div>
+            <div class="stat"><span>Waiting:</span><span id="queueDisplay">0</span></div>
+            <div class="stat"><span>Check-in:</span><span id="checkinDisplay">0</span></div>
+            <div class="stat"><span>Treating:</span><span id="treatingDisplay">0</span></div>
+        </div>
 
-            <!-- Reception Panel -->
-            <div class="panel" id="receptionPanel">
-                <button class="close-btn" onclick="gameUI.closeReception()">×</button>
-                <div class="panel-title">👨‍💼 Reception</div>
-                <div id="receptionContent"></div>
-            </div>
+        <div class="ui-panel" id="roomPanel">
+            <button class="close" onclick="closeRoomPanel()">×</button>
+            <div class="panel-title" id="roomTitle">Room</div>
+            <div id="roomContent"></div>
+        </div>
+
+        <div class="ui-panel" id="receptionPanel">
+            <button class="close" onclick="closeReception()">×</button>
+            <div class="panel-title">👨‍💼 Reception</div>
+            <div id="receptionContent"></div>
         </div>
     </div>
 
-    <script src="three.module.js"></script>
-    <script src="gameEngine.js" type="module"></script>
-    <script src="hospitalRenderer.js" type="module"></script>
-    <script src="app.js" type="module"></script>
+    <script>
+        // Simple game engine
+        const game = {
+            money: 5000,
+            reputation: 0,
+            prestige: 0,
+            mps: 0,
+            patientsServed: 0,
+            queue: 0,
+            checkin: 0,
+            treating: 0,
+
+            rooms: [
+                { id: 0, name: 'Reception', icon: '🪑', color: '#4CAF50', owned: 1, level: 1, income: 0 },
+                { id: 1, name: 'Examination', icon: '🔬', color: '#2196F3', owned: 0, level: 1, income: 0 },
+                { id: 2, name: 'Surgery', icon: '⚕️', color: '#FF6B6B', owned: 0, level: 1, income: 0 },
+                { id: 3, name: 'ICU', icon: '🏨', color: '#FF9800', owned: 0, level: 1, income: 0 },
+                { id: 4, name: 'Pharmacy', icon: '💉', color: '#9C27B0', owned: 0, level: 1, income: 0 },
+                { id: 5, name: 'Lab', icon: '🧪', color: '#00BCD4', owned: 0, level: 1, income: 0 },
+            ],
+
+            staff: { intern: 0, resident: 0, attending: 0, specialist: 0 },
+            staffCosts: { intern: 1000, resident: 3500, attending: 12000, specialist: 40000 },
+
+            update(dt) {
+                this.money += this.mps * dt;
+                this.queue = Math.max(0, this.queue - 0.5 * dt);
+                if (this.queue < 5) this.queue = Math.min(20, this.queue + 0.3 * dt);
+
+                this.mps = (this.rooms[0].owned * 10) +
+                           (this.staff.intern * 2) + (this.staff.resident * 6) +
+                           (this.staff.attending * 15) + (this.staff.specialist * 40);
+            },
+
+            buyRoom(id) {
+                const cost = 100 * (id + 1) * Math.pow(1.2, this.rooms[id].owned);
+                if (this.money >= cost) {
+                    this.money -= cost;
+                    this.rooms[id].owned += 1;
+                    return true;
+                }
+                return false;
+            },
+
+            upgradeRoom(id) {
+                const cost = 100 * (id + 1) * Math.pow(1.2, this.rooms[id].level);
+                if (this.money >= cost) {
+                    this.money -= cost;
+                    this.rooms[id].level += 1;
+                    return true;
+                }
+                return false;
+            },
+
+            hireStaff(tier) {
+                const cost = this.staffCosts[tier];
+                if (this.money >= cost) {
+                    this.money -= cost;
+                    this.staff[tier] += 1;
+                    return true;
+                }
+                return false;
+            },
+
+            formatMoney(n) {
+                if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+                if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+                return Math.floor(n).toString();
+            }
+        };
+
+        // UI functions
+        function updateUI() {
+            document.getElementById('moneyDisplay').textContent = '$' + game.formatMoney(game.money);
+            document.getElementById('rateDisplay').textContent = '+$' + game.formatMoney(game.mps) + '/s';
+            document.getElementById('repDisplay').textContent = game.reputation;
+            document.getElementById('prestigeDisplay').textContent = game.prestige;
+            document.getElementById('queueDisplay').textContent = Math.floor(game.queue);
+            document.getElementById('checkinDisplay').textContent = Math.floor(game.checkin);
+            document.getElementById('treatingDisplay').textContent = Math.floor(game.treating);
+        }
+
+        function showRoomPanel(id) {
+            const room = game.rooms[id];
+            const panel = document.getElementById('roomPanel');
+            document.getElementById('roomTitle').textContent = `${room.icon} ${room.name}`;
+
+            let html = `
+                <div style="margin-bottom: 12px;">
+                    <div class="stat"><span>Owned:</span><span>${room.owned}</span></div>
+                    <div class="stat"><span>Level:</span><span>${room.level}</span></div>
+                    <div class="stat"><span>Income:</span><span>~$${room.owned * room.level * 10}/s</span></div>
+                </div>
+                <button class="btn" style="width: 100%;" onclick="game.buyRoom(${id}); updateUI(); showRoomPanel(${id});">Buy Room ($${Math.floor(100 * (id + 1) * Math.pow(1.2, room.owned))})</button>
+                <button class="btn" style="width: 100%;" onclick="game.upgradeRoom(${id}); updateUI(); showRoomPanel(${id});">Upgrade ($${Math.floor(100 * (id + 1) * Math.pow(1.2, room.level))})</button>
+            `;
+
+            document.getElementById('roomContent').innerHTML = html;
+            panel.style.display = 'block';
+        }
+
+        function closeRoomPanel() {
+            document.getElementById('roomPanel').style.display = 'none';
+        }
+
+        function showReception() {
+            const panel = document.getElementById('receptionPanel');
+            let html = '<div style="margin-bottom: 12px;">';
+
+            ['intern', 'resident', 'attending', 'specialist'].forEach(tier => {
+                const tierNames = { intern: 'Intern', resident: 'Resident', attending: 'Attending', specialist: 'Specialist' };
+                const icons = { intern: '👤', resident: '👨‍⚕️', attending: '👨‍⚕️', specialist: '👨‍⚕️' };
+                const cost = game.staffCosts[tier];
+                const count = game.staff[tier];
+                html += `
+                    <div style="margin-bottom: 8px;">
+                        <div style="font-size: 11px; color: #999;">${icons[tier]} ${tierNames[tier]} (${count}) - $${cost}</div>
+                        <button class="btn" onclick="game.hireStaff('${tier}'); updateUI(); showReception();" ${game.money < cost ? 'disabled' : ''}>Hire ($${cost})</button>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            document.getElementById('receptionContent').innerHTML = html;
+            panel.style.display = 'block';
+        }
+
+        function closeReception() {
+            document.getElementById('receptionPanel').style.display = 'none';
+        }
+
+        // Canvas rendering
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+
+        function drawGame() {
+            ctx.fillStyle = '#0a0e17';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const gridSize = canvas.width / 3;
+            const rooms = game.rooms;
+
+            // Draw rooms
+            rooms.forEach((room, i) => {
+                const x = (i % 3) * gridSize + gridSize / 2;
+                const y = Math.floor(i / 3) * (canvas.height / 2) + canvas.height / 4;
+
+                // Room box
+                ctx.fillStyle = room.color + '40';
+                ctx.strokeStyle = room.color;
+                ctx.lineWidth = 2;
+                ctx.fillRect(x - gridSize / 2 + 20, y - 40, gridSize - 40, 80);
+                ctx.strokeRect(x - gridSize / 2 + 20, y - 40, gridSize - 40, 80);
+
+                // Room content
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 48px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(room.icon, x, y - 20);
+
+                ctx.font = 'bold 14px Arial';
+                ctx.fillStyle = '#64d9ff';
+                ctx.fillText(room.name, x, y + 15);
+
+                ctx.font = '12px Arial';
+                ctx.fillStyle = '#b0c4de';
+                ctx.fillText(`Owned: ${room.owned}`, x, y + 35);
+
+                // Click handler
+                canvas.addEventListener('click', (e) => {
+                    const rect = canvas.getBoundingClientRect();
+                    const clickX = e.clientX - rect.left;
+                    const clickY = e.clientY - rect.top;
+
+                    if (clickX > x - gridSize / 2 + 20 && clickX < x + gridSize / 2 - 20 &&
+                        clickY > y - 40 && clickY < y + 40) {
+                        if (i === 0) showReception();
+                        else showRoomPanel(i);
+                    }
+                });
+            });
+        }
+
+        function gameLoop() {
+            game.update(0.016);
+            updateUI();
+            drawGame();
+            requestAnimationFrame(gameLoop);
+        }
+
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        gameLoop();
+    </script>
 </body>
 </html>
