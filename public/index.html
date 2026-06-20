@@ -142,22 +142,6 @@
             0% { transform: translate(-50%, 0); opacity: 1; }
             100% { transform: translate(-50%, -60px); opacity: 0; }
         }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-        }
-
-        .popup-text {
-            position: fixed;
-            font-weight: bold;
-            pointer-events: none;
-            animation: popupFloat 2s ease-out forwards;
-            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
-            font-size: 18px;
-        }
-
-        .pulse { animation: pulse 0.5s ease-out; }
     </style>
 </head>
 <body>
@@ -233,8 +217,9 @@
     </div>
 
     <script>
-        const ROOM_SIZE = 140;
-        const ROOM_HEIGHT = 100;
+        const ROOM_WIDTH = 150;
+        const ROOM_HEIGHT = 120;
+        const ROOM_DEPTH = 40;
 
         const game = {
             money: 5100,
@@ -250,18 +235,19 @@
             nextStaffId: 0,
 
             rooms: [
-                { id: 0, name: 'Reception', icon: '🪑', color: '#4CAF50', owned: 1, level: 1, x: 0, y: 0, production: 0, staff: [] },
-                { id: 1, name: 'Examination', icon: '🔬', color: '#2196F3', owned: 0, level: 1, x: 1, y: 0, production: 50, staff: [] },
-                { id: 2, name: 'Surgery', icon: '⚕️', color: '#FF6B6B', owned: 0, level: 1, x: 2, y: 0, production: 150, staff: [] },
-                { id: 3, name: 'ICU', icon: '🏨', color: '#FF9800', owned: 0, level: 1, x: 0, y: 1, production: 200, staff: [] },
-                { id: 4, name: 'Pharmacy', icon: '💉', color: '#9C27B0', owned: 0, level: 1, x: 1, y: 1, production: 75, staff: [] },
-                { id: 5, name: 'Lab', icon: '🧪', color: '#00BCD4', owned: 0, level: 1, x: 2, y: 1, production: 100, staff: [] },
+                { id: 0, name: 'Reception', icon: '🪑', color: '#4CAF50', rgb: [76, 175, 80], owned: 1, level: 1, x: 0, y: 0, production: 0, staff: [], people: [] },
+                { id: 1, name: 'Examination', icon: '🔬', color: '#2196F3', rgb: [33, 150, 243], owned: 0, level: 1, x: 1, y: 0, production: 50, staff: [], people: [] },
+                { id: 2, name: 'Surgery', icon: '⚕️', color: '#FF6B6B', rgb: [255, 107, 107], owned: 0, level: 1, x: 2, y: 0, production: 150, staff: [], people: [] },
+                { id: 3, name: 'ICU', icon: '🏨', color: '#FF9800', rgb: [255, 152, 0], owned: 0, level: 1, x: 0, y: 1, production: 200, staff: [], people: [] },
+                { id: 4, name: 'Pharmacy', icon: '💉', color: '#9C27B0', rgb: [156, 39, 176], owned: 0, level: 1, x: 1, y: 1, production: 75, staff: [], people: [] },
+                { id: 5, name: 'Lab', icon: '🧪', color: '#00BCD4', rgb: [0, 188, 212], owned: 0, level: 1, x: 2, y: 1, production: 100, staff: [], people: [] },
             ],
 
             staff: { intern: 0, resident: 0, attending: 0, specialist: 0 },
             staffCosts: { intern: 1000, resident: 3500, attending: 12000, specialist: 40000 },
             staffNames: { intern: 'Intern', resident: 'Resident', attending: 'Attending', specialist: 'Specialist' },
             staffColors: { intern: '#90caf9', resident: '#81c784', attending: '#ffb74d', specialist: '#f06292' },
+            staffRGB: { intern: [144, 202, 249], resident: [129, 199, 132], attending: [255, 183, 77], specialist: [240, 98, 146] },
             staffEfficiency: { intern: 1, resident: 2.5, attending: 6, specialist: 12 },
 
             addFloatingText(x, y, text, color) {
@@ -280,18 +266,16 @@
                 }
 
                 // Patient arrival
-                const maxPatients = Math.floor(20 + this.getTotalStaff() * 2);
-                if (this.patientQueue.length < maxPatients && Math.random() < 0.4 * dt) {
+                const maxPatients = Math.floor(20 + this.getTotalStaff() * 3);
+                if (this.patientQueue.length < maxPatients && Math.random() < 0.5 * dt) {
                     const colors = ['#FF6B9D', '#C44569', '#FFA07A', '#87CEEB', '#98D8C8'];
                     this.patientQueue.push({
                         id: this.nextPatientId++,
                         color: colors[Math.floor(Math.random() * colors.length)],
                         state: 'waiting',
                         timeInState: 0,
-                        x: 180 + Math.random() * 40,
-                        y: 120 + Math.random() * 40,
-                        targetX: 0,
-                        targetY: 0,
+                        x: 0,
+                        y: 0,
                     });
                 }
 
@@ -301,35 +285,19 @@
                     p.timeInState += dt;
 
                     if (p.state === 'waiting') {
-                        // Smooth movement in queue
-                        const targetIdx = i % 6;
-                        p.targetX = 200 + (targetIdx % 3) * 25;
-                        p.targetY = 130 + Math.floor(targetIdx / 3) * 25;
-                        p.x += (p.targetX - p.x) * 0.05;
-                        p.y += (p.targetY - p.y) * 0.05;
-
-                        if (p.timeInState > 2 + Math.random()) {
+                        const treatableRooms = this.rooms.filter(r => r.owned > 0 && r.id > 0);
+                        if (treatableRooms.length > 0 && p.timeInState > 1 + Math.random()) {
                             p.state = 'treating';
+                            p.roomId = treatableRooms[Math.floor(Math.random() * treatableRooms.length)].id;
                             p.timeInState = 0;
                         }
                     } else if (p.state === 'treating') {
-                        // Move to treatment room
-                        const room = this.rooms[1 + Math.floor(Math.random() * 2)];
-                        if (room.owned > 0) {
-                            p.targetX = room.x * ROOM_SIZE + 70 + Math.sin(this.time + i) * 20;
-                            p.targetY = room.y * ROOM_HEIGHT + 50 + Math.cos(this.time + i) * 20;
-                            p.x += (p.targetX - p.x) * 0.08;
-                            p.y += (p.targetY - p.y) * 0.08;
-
-                            if (p.timeInState > 3 + Math.random() * 2) {
-                                const reward = 40 + Math.random() * 80;
-                                this.money += reward;
-                                this.reputation += 1 + Math.random();
-                                this.patientsServed += 1;
-                                this.addFloatingText(p.x, p.y, `+$${Math.floor(reward)}`, '#81c784');
-                                this.patientQueue.splice(i, 1);
-                            }
-                        } else {
+                        if (p.timeInState > 3 + Math.random() * 2) {
+                            const reward = 50 + Math.random() * 100;
+                            this.money += reward;
+                            this.reputation += 2 + Math.random();
+                            this.patientsServed += 1;
+                            this.addFloatingText(0, 0, `+$${Math.floor(reward)}`, '#81c784');
                             this.patientQueue.splice(i, 1);
                         }
                     }
@@ -338,13 +306,12 @@
                 // Spawn staff characters
                 let staffNeeded = this.getTotalStaff();
                 while (this.staffList.length < staffNeeded) {
+                    const tier = this.getStaffTierForIndex(this.staffList.length);
                     this.staffList.push({
                         id: this.nextStaffId++,
-                        tier: this.getStaffTierForIndex(this.staffList.length),
-                        x: Math.random() * 300 + 100,
-                        y: Math.random() * 200 + 50,
-                        targetRoom: null,
-                        moveTimer: 0,
+                        tier: tier,
+                        targetRoom: this.rooms[Math.floor(Math.random() * this.rooms.length)],
+                        moveTimer: Math.random() * 3,
                     });
                 }
 
@@ -353,35 +320,22 @@
                     this.staffList.pop();
                 }
 
-                // Staff movement
-                this.staffList.forEach((staff, idx) => {
+                // Staff room assignment
+                this.staffList.forEach(staff => {
                     staff.moveTimer -= dt;
-
                     if (staff.moveTimer <= 0) {
-                        staff.targetRoom = this.rooms[Math.floor(Math.random() * this.rooms.length)];
-                        staff.moveTimer = 3 + Math.random() * 3;
-                    }
-
-                    if (staff.targetRoom && staff.targetRoom.owned > 0) {
-                        const targetX = staff.targetRoom.x * ROOM_SIZE + 70;
-                        const targetY = staff.targetRoom.y * ROOM_HEIGHT + 50;
-                        const dx = targetX - staff.x;
-                        const dy = targetY - staff.y;
-                        const dist = Math.sqrt(dx * dx + dy * dy);
-
-                        if (dist > 3) {
-                            staff.x += (dx / (dist + 0.1)) * 50 * dt;
-                            staff.y += (dy / (dist + 0.1)) * 50 * dt;
-                        }
+                        const availableRooms = this.rooms.filter(r => r.owned > 0);
+                        staff.targetRoom = availableRooms[Math.floor(Math.random() * availableRooms.length)];
+                        staff.moveTimer = 4 + Math.random() * 3;
                     }
                 });
 
                 // Calculate MPS
                 this.mps = 5;
                 Object.entries(this.staff).forEach(([tier, count]) => {
-                    this.mps += count * this.staffEfficiency[tier] * 2;
+                    this.mps += count * this.staffEfficiency[tier] * 3;
                 });
-                this.mps += Math.min(this.patientQueue.length, 5) * 3;
+                this.mps += Math.min(this.patientQueue.length, 5) * 2;
 
                 this.money += this.mps * dt;
             },
@@ -400,7 +354,6 @@
                 if (this.money >= cost) {
                     this.money -= cost;
                     this.rooms[id].owned += 1;
-                    this.addFloatingText(this.rooms[id].x * ROOM_SIZE + 70, this.rooms[id].y * ROOM_HEIGHT + 50, '🏗️ +Room', '#00d4ff');
                     return true;
                 }
                 return false;
@@ -411,7 +364,6 @@
                 if (this.money >= cost) {
                     this.money -= cost;
                     this.rooms[id].level += 1;
-                    this.addFloatingText(this.rooms[id].x * ROOM_SIZE + 70, this.rooms[id].y * ROOM_HEIGHT + 50, '⬆️ +Level', '#ffb74d');
                     return true;
                 }
                 return false;
@@ -421,7 +373,6 @@
                 if (this.money >= this.staffCosts[tier]) {
                     this.money -= this.staffCosts[tier];
                     this.staff[tier] += 1;
-                    this.addFloatingText(250, 150, `✓ Hired ${this.staffNames[tier]}`, this.staffColors[tier]);
                     return true;
                 }
                 return false;
@@ -447,97 +398,126 @@
             canvas.height = canvas.offsetHeight;
         }
 
-        function drawIsometricRoom(room) {
-            const baseX = room.x * ROOM_SIZE - room.y * ROOM_SIZE / 2 + 500;
-            const baseY = room.y * ROOM_HEIGHT / 2 + 150;
-
-            // Shadow
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+        function drawIsometricBox(x, y, w, h, d, color, rgb) {
+            // Top face
+            ctx.fillStyle = color + '80';
             ctx.beginPath();
-            ctx.ellipse(baseX + ROOM_SIZE / 2, baseY + ROOM_HEIGHT + 8, ROOM_SIZE / 2 + 5, 10, 0, 0, Math.PI * 2);
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + w, y);
+            ctx.lineTo(x + w + d/2, y + d/2);
+            ctx.lineTo(x + d/2, y + d/2);
+            ctx.closePath();
             ctx.fill();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
 
-            // Gradient fill
-            const grad = ctx.createLinearGradient(baseX, baseY, baseX + ROOM_SIZE, baseY + ROOM_HEIGHT);
-            grad.addColorStop(0, room.color + '60');
-            grad.addColorStop(0.5, room.color + '40');
-            grad.addColorStop(1, room.color + '20');
-
-            ctx.fillStyle = grad;
-            ctx.strokeStyle = room.color;
-            ctx.lineWidth = 2.5;
-
-            // Isometric box
+            // Left face
+            ctx.fillStyle = `rgb(${rgb[0]*0.6}, ${rgb[1]*0.6}, ${rgb[2]*0.6})`;
             ctx.beginPath();
-            ctx.moveTo(baseX, baseY + 35);
-            ctx.lineTo(baseX + ROOM_SIZE / 2, baseY - 25);
-            ctx.lineTo(baseX + ROOM_SIZE, baseY + 35);
-            ctx.lineTo(baseX + ROOM_SIZE / 2, baseY + 85);
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + d/2, y + d/2);
+            ctx.lineTo(x + d/2, y + h + d/2);
+            ctx.lineTo(x, y + h);
             ctx.closePath();
             ctx.fill();
             ctx.stroke();
 
-            // Highlight edge
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-            ctx.lineWidth = 1.5;
+            // Right face
+            ctx.fillStyle = `rgb(${rgb[0]*0.8}, ${rgb[1]*0.8}, ${rgb[2]*0.8})`;
             ctx.beginPath();
-            ctx.moveTo(baseX, baseY + 35);
-            ctx.lineTo(baseX + ROOM_SIZE / 2, baseY - 25);
+            ctx.moveTo(x + w, y);
+            ctx.lineTo(x + w + d/2, y + d/2);
+            ctx.lineTo(x + w + d/2, y + h + d/2);
+            ctx.lineTo(x + w, y + h);
+            ctx.closePath();
+            ctx.fill();
             ctx.stroke();
-
-            // Icon
-            ctx.font = 'bold 50px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillStyle = '#fff';
-            ctx.shadowColor = 'rgba(0,0,0,0.8)';
-            ctx.shadowBlur = 10;
-            ctx.shadowOffsetX = 2;
-            ctx.shadowOffsetY = 2;
-            ctx.fillText(room.icon, baseX + ROOM_SIZE / 2, baseY + 25);
-            ctx.shadowBlur = 0;
-
-            // Room name
-            ctx.font = 'bold 12px Arial';
-            ctx.fillStyle = room.color;
-            ctx.fillText(room.name, baseX + ROOM_SIZE / 2, baseY + 63);
-
-            // Owned indicator
-            ctx.font = '10px Arial';
-            ctx.fillStyle = room.owned > 0 ? '#aaa' : '#666';
-            ctx.fillText(room.owned > 0 ? `×${room.owned} | Lvl${room.level}` : 'Click to buy', baseX + ROOM_SIZE / 2, baseY + 76);
-
-            room.clickArea = { x: baseX - 10, y: baseY - 55, w: ROOM_SIZE + 20, h: 160 };
         }
 
-        function drawCharacter(x, y, color, size = 1, label = '') {
+        function drawPerson(x, y, color) {
             // Head
             ctx.fillStyle = color;
             ctx.beginPath();
-            ctx.arc(x, y - 10 * size, 6 * size, 0, Math.PI * 2);
+            ctx.arc(x, y - 8, 4, 0, Math.PI * 2);
             ctx.fill();
 
             // Body
-            ctx.fillRect(x - 3 * size, y - 2 * size, 6 * size, 10 * size);
+            ctx.fillRect(x - 2, y - 2, 4, 6);
 
-            // Outline
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.arc(x, y - 10 * size, 6 * size, 0, Math.PI * 2);
-            ctx.stroke();
+            // Arms
+            ctx.fillRect(x - 4, y, 8, 2);
+        }
 
-            // Label
-            if (label) {
-                ctx.fillStyle = '#fff';
-                ctx.font = 'bold 8px Arial';
+        function drawRoom(room) {
+            const baseX = room.x * ROOM_WIDTH + room.y * ROOM_WIDTH / 2 + 400;
+            const baseY = room.y * ROOM_HEIGHT / 2 + 150;
+
+            if (room.owned === 0) {
+                // Empty room - just outline
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+                ctx.strokeStyle = room.color + '40';
+                ctx.lineWidth = 2;
+                drawIsometricBox(baseX, baseY, ROOM_WIDTH, ROOM_HEIGHT, ROOM_DEPTH, room.color, room.rgb);
+
+                ctx.fillStyle = room.color + '40';
+                ctx.font = 'bold 14px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText(label, x, y - 18 * size);
+                ctx.fillText(room.icon, baseX + ROOM_WIDTH/2 + ROOM_DEPTH/4, baseY + ROOM_HEIGHT/2 + ROOM_DEPTH/4);
+                return;
             }
+
+            // Draw room box
+            drawIsometricBox(baseX, baseY, ROOM_WIDTH, ROOM_HEIGHT, ROOM_DEPTH, room.color, room.rgb);
+
+            // Draw furniture based on room type
+            const cx = baseX + ROOM_WIDTH/2 + ROOM_DEPTH/4;
+            const cy = baseY + ROOM_HEIGHT/2 + ROOM_DEPTH/4;
+
+            ctx.fillStyle = room.color;
+            ctx.font = 'bold 36px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(room.icon, cx, cy - 10);
+
+            // Room label
+            ctx.font = 'bold 11px Arial';
+            ctx.fillStyle = room.color;
+            ctx.fillText(room.name, cx, cy + 25);
+
+            // Owned/Level
+            ctx.font = '9px Arial';
+            ctx.fillStyle = '#aaa';
+            ctx.fillText(`×${room.owned} | Lvl${room.level}`, cx, cy + 38);
+
+            // Draw people in room
+            const patientsInRoom = game.patientQueue.filter(p => p.roomId === room.id && p.state === 'treating');
+            const staffInRoom = game.staffList.filter(s => s.targetRoom?.id === room.id);
+
+            let personIdx = 0;
+            patientsInRoom.slice(0, 2).forEach(() => {
+                const px = baseX + 20 + personIdx * 30;
+                const py = baseY + 60;
+                drawPerson(px, py, patientsInRoom[personIdx]?.color || '#FF6B9D');
+                personIdx++;
+            });
+
+            staffInRoom.slice(0, 2).forEach((staff, idx) => {
+                const sx = baseX + 20 + idx * 30 + (patientsInRoom.length > 0 ? 30 : 0);
+                const sy = baseY + 60;
+                drawPerson(sx, sy, game.staffColors[staff.tier]);
+            });
+
+            room.clickArea = {
+                x: baseX - 10,
+                y: baseY - 20,
+                w: ROOM_WIDTH + ROOM_DEPTH/2 + 20,
+                h: ROOM_HEIGHT + ROOM_DEPTH + 20
+            };
         }
 
         function drawGame() {
-            // Background gradient
+            // Background
             const bgGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
             bgGrad.addColorStop(0, '#0a0d14');
             bgGrad.addColorStop(1, '#0f1219');
@@ -545,7 +525,7 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Grid
-            ctx.strokeStyle = 'rgba(0, 212, 255, 0.03)';
+            ctx.strokeStyle = 'rgba(0, 212, 255, 0.02)';
             ctx.lineWidth = 0.5;
             for (let i = 0; i < canvas.width; i += 50) {
                 ctx.beginPath();
@@ -560,35 +540,19 @@
                 ctx.stroke();
             }
 
-            // Draw rooms
-            game.rooms.forEach(room => drawIsometricRoom(room));
-
-            // Draw staff
-            game.staffList.forEach((staff, idx) => {
-                drawCharacter(staff.x, staff.y, game.staffColors[staff.tier], 1, staff.tier[0].toUpperCase());
-            });
-
-            // Draw patients
-            game.patientQueue.forEach((patient, idx) => {
-                drawCharacter(patient.x, patient.y, patient.color, 0.85);
-
-                // Status dot
-                ctx.fillStyle = patient.state === 'treating' ? '#ffb74d' : '#00d4ff';
-                ctx.beginPath();
-                ctx.arc(patient.x + 12, patient.y - 16, 3, 0, Math.PI * 2);
-                ctx.fill();
-            });
+            // Draw rooms (back to front for proper layering)
+            game.rooms.forEach(room => drawRoom(room));
 
             // Draw floating texts
             game.floatingTexts.forEach(ft => {
                 const progress = ft.time / ft.duration;
-                ctx.globalAlpha = 1 - progress;
+                ctx.globalAlpha = Math.max(0, 1 - progress);
                 ctx.fillStyle = ft.color;
-                ctx.font = 'bold 14px Arial';
+                ctx.font = 'bold 18px Arial';
                 ctx.textAlign = 'center';
                 ctx.shadowColor = 'rgba(0,0,0,0.8)';
-                ctx.shadowBlur = 6;
-                ctx.fillText(ft.text, ft.x, ft.y - progress * 50);
+                ctx.shadowBlur = 8;
+                ctx.fillText(ft.text, 100, 100 - progress * 50);
                 ctx.shadowBlur = 0;
                 ctx.globalAlpha = 1;
             });
@@ -597,7 +561,7 @@
             ctx.font = 'bold 14px Arial';
             ctx.fillStyle = '#00d4ff';
             ctx.textAlign = 'left';
-            ctx.fillText(`👥 Patients Waiting: ${game.patientQueue.length}`, 20, 30);
+            ctx.fillText(`👥 Patients Waiting: ${game.patientQueue.filter(p => p.state === 'waiting').length}`, 20, 30);
 
             ctx.font = '12px Arial';
             ctx.fillStyle = '#90b0d4';
@@ -615,7 +579,7 @@
             document.getElementById('activeRooms').textContent = activeRooms;
             document.getElementById('totalStaffCount').textContent = game.getTotalStaff();
             document.getElementById('incomeHour').textContent = game.format(game.mps * 3600);
-            document.getElementById('waitingCount').textContent = game.patientQueue.length;
+            document.getElementById('waitingCount').textContent = game.patientQueue.filter(p => p.state === 'waiting').length;
             document.getElementById('treatedCount').textContent = game.patientsServed;
         }
 
@@ -652,23 +616,18 @@
             const panel = document.getElementById('receptionPanel');
             const content = document.getElementById('receptionContent');
 
-            let html = '<div style="margin-bottom: 12px; font-size: 11px; color: #90b0d4;">Hire staff to increase hospital efficiency and patient throughput.</div>';
+            let html = '<div style="margin-bottom: 12px; font-size: 11px; color: #90b0d4;">Hire medical staff to treat more patients and increase hospital income.</div>';
             ['intern', 'resident', 'attending', 'specialist'].forEach(tier => {
                 const cost = game.staffCosts[tier];
                 const name = game.staffNames[tier];
                 const count = game.staff[tier];
                 const color = game.staffColors[tier];
-                const efficiency = game.staffEfficiency[tier];
 
                 html += `
                     <div class="staff-row">
                         <div class="stat-line">
                             <span class="stat-label" style="color: ${color};">● ${name}</span>
                             <span class="stat-val">×${count}</span>
-                        </div>
-                        <div class="stat-line">
-                            <span class="stat-label">Income Boost:</span>
-                            <span class="stat-val">+${game.format(efficiency * 2)}/s</span>
                         </div>
                         <button class="btn btn-secondary" onclick="game.hireStaff('${tier}'); updateUI(); showReception();" ${game.money < cost ? 'disabled' : ''}>
                             HIRE - $${game.format(cost)}
