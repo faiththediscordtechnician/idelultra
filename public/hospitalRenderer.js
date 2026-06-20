@@ -1,5 +1,6 @@
-import * as THREE from 'three';
 import GameEngine from './gameEngine.js';
+
+const THREE = window.THREE;
 
 const ROOM_SIZE = 26;
 const WALL_HEIGHT = 9;
