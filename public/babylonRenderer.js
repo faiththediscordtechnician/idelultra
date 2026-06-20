@@ -1,5 +1,6 @@
-import * as BABYLON from 'babylon';
 import GameEngine from './gameEngine.js';
+
+const BABYLON = window.BABYLON;
 
 const ROOM_SIZE = 26;
 const WALL_HEIGHT = 9;
